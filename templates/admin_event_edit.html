@@ -1,0 +1,202 @@
+{{define "admin-tree-node"}}
+{{$node := index . "Node"}}
+{{$eventID := index . "EventID"}}
+{{if eq $node.Type "group"}}
+<div class="tree-group" data-type="group" data-id="{{$node.Group.ID}}">
+    <div class="group-header">
+        <span class="drag-handle" title="{{t "task_drag_hint"}}">&#x2807;</span>
+        <div class="tree-inline-inputs">
+            <input type="text" data-field="title_fr" value="{{$node.Group.TitleFR}}" placeholder="{{t "group_title_fr"}}">
+            <input type="text" data-field="title_en" value="{{$node.Group.TitleEN}}" placeholder="{{t "group_title_en"}}">
+        </div>
+        <button type="button" class="btn-icon" onclick="deleteItem('group', {{$node.Group.ID}})" title="{{t "delete"}}">&#x2715;</button>
+    </div>
+    <div class="tree-children" data-group-id="{{$node.Group.ID}}">
+        {{range $node.Children}}
+        {{template "admin-tree-node" (dict "Node" . "EventID" $eventID)}}
+        {{end}}
+        {{if not $node.Children}}<div class="drop-placeholder">{{t "group_drop_here"}}</div>{{end}}
+    </div>
+</div>
+{{else}}
+<div class="tree-task" data-type="task" data-id="{{$node.Task.ID}}">
+    <div class="task-item">
+        <span class="drag-handle" title="{{t "task_drag_hint"}}">&#x2807;</span>
+        <div class="task-item-body">
+            <div class="tree-inline-inputs">
+                <input type="text" data-field="title_fr" value="{{$node.Task.TitleFR}}" placeholder="{{t "task_title_fr"}}">
+                <input type="text" data-field="title_en" value="{{$node.Task.TitleEN}}" placeholder="{{t "task_title_en"}}">
+            </div>
+            {{$hasDesc := or $node.Task.DescriptionFR $node.Task.DescriptionEN}}
+            <button type="button" class="desc-toggle" onclick="toggleDescription(this)" data-show-text="{{t "task_add_description"}}" data-hide-text="{{t "task_hide_description"}}">{{if $hasDesc}}{{t "task_hide_description"}}{{else}}{{t "task_add_description"}}{{end}}</button>
+            <div class="tree-inline-inputs task-descriptions{{if not $hasDesc}} desc-hidden{{end}}" style="margin-top:0.25rem;">
+                <textarea data-field="description_fr" rows="2" placeholder="{{t "task_desc_fr"}}">{{$node.Task.DescriptionFR}}</textarea>
+                <textarea data-field="description_en" rows="2" placeholder="{{t "task_desc_en"}}">{{$node.Task.DescriptionEN}}</textarea>
+            </div>
+        </div>
+        <div class="task-item-actions">
+            <div class="task-slots-inline">
+                <input type="number" min="0" class="slots-input" data-field="max_slots" value="{{if $node.Task.MaxSlots.Valid}}{{$node.Task.MaxSlots.Int64}}{{end}}" placeholder="&#8734;">
+                {{if $node.Task.RegCount}}<span class="slots-count">({{$node.Task.RegCount}})</span>{{end}}
+            </div>
+            <button type="button" class="btn-icon" onclick="deleteItem('task', {{$node.Task.ID}})" title="{{t "delete"}}">&#x2715;</button>
+        </div>
+    </div>
+</div>
+{{end}}
+{{end}}
+
+{{define "content"}}
+{{$data := .Data}}
+{{$event := index $data "Event"}}
+{{$isNew := index $data "IsNew"}}
+
+<div class="admin-header">
+    <div class="header-left">
+        <a href="/admin?lang={{lang}}" class="btn-back" title="{{t "back"}}">&#x2190;</a>
+        {{if $isNew}}
+        <h1>{{t "event_new"}}</h1>
+        {{else}}
+        <h1>{{t "event_edit"}}</h1>
+        {{end}}
+    </div>
+</div>
+
+<!-- Event Details -->
+<section class="panel" id="event-details">
+    <h2 class="panel-title">{{t "event_details"}}</h2>
+    {{if $isNew}}
+    <form method="POST" class="panel-body" action="/admin/event/new?lang={{lang}}">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="title_fr">{{t "event_title_fr"}} *</label>
+                <input type="text" id="title_fr" name="title_fr" value="{{$event.TitleFR}}" required class="form-input">
+            </div>
+            <div class="form-group">
+                <label for="title_en">{{t "event_title_en"}}</label>
+                <input type="text" id="title_en" name="title_en" value="{{$event.TitleEN}}" class="form-input">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="event_date">{{t "event_date"}} *</label>
+                <input type="date" id="event_date" name="event_date" value="{{$event.EventDate}}" required class="form-input">
+            </div>
+            <div class="form-group">
+                <label for="event_time">{{t "event_time"}}</label>
+                <input type="time" id="event_time" name="event_time" value="{{$event.EventTime}}" class="form-input">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="description_fr">{{t "event_desc_fr"}}</label>
+                <textarea id="description_fr" name="description_fr" rows="4" class="form-input event-desc-textarea">{{$event.DescriptionFR}}</textarea>
+            </div>
+            <div class="form-group">
+                <label for="description_en">{{t "event_desc_en"}}</label>
+                <textarea id="description_en" name="description_en" rows="4" class="form-input event-desc-textarea">{{$event.DescriptionEN}}</textarea>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">{{t "create"}}</button>
+        </div>
+    </form>
+    {{else}}
+    <div class="panel-body" data-event-id="{{$event.ID}}">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="title_fr">{{t "event_title_fr"}} *</label>
+                <input type="text" id="title_fr" value="{{$event.TitleFR}}" class="form-input">
+            </div>
+            <div class="form-group">
+                <label for="title_en">{{t "event_title_en"}}</label>
+                <input type="text" id="title_en" value="{{$event.TitleEN}}" class="form-input">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="event_date">{{t "event_date"}} *</label>
+                <input type="date" id="event_date" value="{{$event.EventDate}}" class="form-input">
+            </div>
+            <div class="form-group">
+                <label for="event_time">{{t "event_time"}}</label>
+                <input type="time" id="event_time" value="{{$event.EventTime}}" class="form-input">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="description_fr">{{t "event_desc_fr"}}</label>
+                <textarea id="description_fr" rows="4" class="form-input event-desc-textarea">{{$event.DescriptionFR}}</textarea>
+            </div>
+            <div class="form-group">
+                <label for="description_en">{{t "event_desc_en"}}</label>
+                <textarea id="description_en" rows="4" class="form-input event-desc-textarea">{{$event.DescriptionEN}}</textarea>
+            </div>
+        </div>
+        <div class="public-link-inline" style="margin-top:0.75rem;">
+            {{t "event_public_link"}}:
+            <code class="slug-url" id="public-url">{{index $data "BaseURL"}}/e/{{$event.Slug}}</code>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="copyLink()">{{t "event_copy_link"}}</button>
+        </div>
+    </div>
+    {{end}}
+</section>
+
+{{if not $isNew}}
+{{$tree := index $data "Tree"}}
+
+<!-- AI Import -->
+{{$hasAI := index $data "HasAI"}}
+{{if $hasAI}}
+<section class="panel" id="ai-import">
+    <div class="panel-header">
+        <h2 class="panel-title">{{t "ai_section"}}</h2>
+    </div>
+    <div class="panel-body">
+        <p class="form-hint" style="margin-bottom:0.75rem;">{{t "ai_subtitle"}}</p>
+        <div class="form-group">
+            <textarea id="ai-text" rows="6" class="form-input" placeholder="{{t "ai_placeholder"}}"></textarea>
+        </div>
+        <label class="ai-toggle">
+            <input type="checkbox" id="ai-default-one">
+            <span>{{t "ai_default_one"}}</span>
+        </label>
+        <div class="ai-actions">
+            <button type="button" class="btn btn-primary" onclick="aiParse('update')">{{t "ai_submit"}}</button>
+        </div>
+        <div id="ai-status" class="ai-status" style="display:none;" data-loading="{{t "ai_loading"}}" data-success="{{t "ai_success"}}" data-error="{{t "ai_error"}}"></div>
+    </div>
+</section>
+{{end}}
+
+<!-- Groups & Tasks -->
+<section class="panel" id="groups-tasks">
+    <div class="panel-header">
+        <h2 class="panel-title">{{t "section_groups_tasks"}}</h2>
+        {{if $tree}}
+        <form method="POST" action="/admin/clear-all" class="inline-form" onsubmit="return confirm('{{t "group_clear_confirm"}}')">
+            <input type="hidden" name="event_id" value="{{$event.ID}}">
+            <button type="submit" class="btn btn-sm btn-danger">{{t "group_clear_all"}}</button>
+        </form>
+        {{end}}
+    </div>
+    <div class="panel-body">
+        <div class="tree-root" id="sortable-container" data-event-id="{{$event.ID}}">
+            {{range $tree}}
+            {{template "admin-tree-node" (dict "Node" . "EventID" $event.ID)}}
+            {{end}}
+            {{if not $tree}}<div class="drop-placeholder">{{t "task_no_tasks"}}</div>{{end}}
+        </div>
+
+        <div class="create-buttons">
+            <button type="button" class="btn btn-secondary" onclick="createGroup()">+ {{t "group_new"}}</button>
+            <button type="button" class="btn btn-secondary" onclick="createTask()">+ {{t "task_new"}}</button>
+        </div>
+    </div>
+</section>
+
+<script src="/static/sortable.min.js"></script>
+<script src="/static/admin.js"></script>
+{{end}}
+{{end}}
+{{template "layout" .}}

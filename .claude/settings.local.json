@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(export PATH=\"$HOME/.asdf/shims:$HOME/.asdf/bin:$PATH\")",
+      "Bash(go version:*)",
+      "Bash(go mod init:*)",
+      "Bash(go get:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(CGO_ENABLED=1 go build:*)",
+      "Bash(EVENT_SIGNUP_ADMIN_PASSWORD=test EVENT_SIGNUP_PORT=18091 timeout:*)",
+      "Bash(__NEW_LINE_794d5a7c7e1cf998__ echo \"=== Execute cancel \\(POST\\) ===\")",
+      "Bash(curl -sS -X POST \"http://localhost:18092$CANCEL_URL\")",
+      "Bash(__NEW_LINE_a8a55d2074b2437c__ echo \"=== Check registrations count ===\")",
+      "Bash(curl:*)",
+      "Bash(echo:*)",
+      "Bash(fi)",
+      "Bash(pkill:*)",
+      "Bash(EVENT_SIGNUP_ADMIN_PASSWORD=test timeout 3 ./event-signup-app:*)",
+      "Bash(chmod:*)",
+      "Bash(EVENT_SIGNUP_ADMIN_PASSWORD=test timeout 2:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(python3:*)",
+      "Bash(sqlite3:*)",
+      "Bash(CGO_ENABLED=1 go test:*)"
+    ]
+  }
+}

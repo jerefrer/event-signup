@@ -1,0 +1,51 @@
+{{define "content"}}
+<div class="admin-header">
+    <h1>{{t "events"}}</h1>
+    <div class="admin-actions">
+        <a href="/admin/event/new?lang={{lang}}" class="btn btn-primary">{{t "event_new"}}</a>
+        <a href="/admin/logout" class="btn btn-secondary">{{t "admin_logout"}}</a>
+    </div>
+</div>
+
+{{$data := .Data}}
+{{$events := index $data "Events"}}
+{{$baseURL := index $data "BaseURL"}}
+
+{{if not $events}}
+<p class="empty-state">{{t "event_no_events"}}</p>
+{{else}}
+<div class="card-list">
+    {{range $events}}
+    <div class="card">
+        <div class="card-body">
+            <h2 class="card-title">{{loc .TitleFR .TitleEN}}</h2>
+            <p class="card-meta">{{formatDate .EventDate}}{{if .EventTime}} {{t "public_event_at"}} {{formatTime .EventTime}}{{end}}</p>
+            <div class="public-link-inline" style="margin-top:0.5rem;">
+                {{t "event_public_link"}}:
+                <a href="{{$baseURL}}/e/{{.Slug}}" target="_blank" class="slug-url">{{$baseURL}}/e/{{.Slug}}</a>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="copyUrl(this)" data-url="{{$baseURL}}/e/{{.Slug}}">{{t "event_copy_link"}}</button>
+            </div>
+        </div>
+        <div class="card-actions">
+            <a href="/admin/event/registrations?id={{.ID}}&lang={{lang}}" class="btn btn-sm btn-secondary">{{t "section_registrations"}}{{if .RegCount}} <span class="count-badge">{{.RegCount}}</span>{{end}}</a>
+            <a href="/admin/event/edit?id={{.ID}}&lang={{lang}}" class="btn btn-sm btn-primary">{{t "edit"}}</a>
+            <form method="POST" action="/admin/event/delete" class="inline-form" onsubmit="return confirm('{{t "event_delete_confirm"}}')">
+                <input type="hidden" name="id" value="{{.ID}}">
+                <button type="submit" class="btn btn-sm btn-danger">{{t "delete"}}</button>
+            </form>
+        </div>
+    </div>
+    {{end}}
+</div>
+
+<script>
+function copyUrl(btn) {
+    navigator.clipboard.writeText(btn.dataset.url);
+    var orig = btn.textContent;
+    btn.textContent = '{{t "event_copied"}}';
+    setTimeout(function() { btn.textContent = orig; }, 1500);
+}
+</script>
+{{end}}
+{{end}}
+{{template "layout" .}}

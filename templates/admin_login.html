@@ -1,0 +1,13 @@
+{{define "content"}}
+<div class="auth-container">
+    <h1>{{t "admin_login"}}</h1>
+    <form method="POST" action="/admin/login?lang={{lang}}" class="form-card">
+        <div class="form-group">
+            <label for="password">{{t "admin_password"}}</label>
+            <input type="password" id="password" name="password" required autofocus class="form-input">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">{{t "admin_login_btn"}}</button>
+    </form>
+</div>
+{{end}}
+{{template "layout" .}}

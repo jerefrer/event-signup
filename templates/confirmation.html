@@ -1,0 +1,25 @@
+{{define "content"}}
+{{$data := .Data}}
+{{$event := index $data "Event"}}
+{{$task := index $data "Task"}}
+{{$reg := index $data "Reg"}}
+
+<script>
+try {
+    localStorage.setItem('reg_' + {{json $event.Slug}}, JSON.stringify({
+        taskId: {{$task.ID}},
+        taskTitle: {{json (loc $task.TitleFR $task.TitleEN)}},
+        cancelToken: {{json $reg.Token}},
+        firstName: {{json $reg.FirstName}},
+        lastName: {{json $reg.LastName}},
+        email: {{json $reg.Email}},
+        phone: {{json $reg.Phone}}
+    }));
+} catch(e) {}
+window.location.replace('/e/' + {{json $event.Slug}} + '?lang={{lang}}');
+</script>
+<noscript>
+<p><a href="/e/{{$event.Slug}}?lang={{lang}}">{{t "confirmation_back"}}</a></p>
+</noscript>
+{{end}}
+{{template "layout" .}}

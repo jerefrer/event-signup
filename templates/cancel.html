@@ -1,0 +1,47 @@
+{{define "content"}}
+{{$data := .Data}}
+
+{{if and $data (index $data "Success")}}
+{{$event := index $data "Event"}}
+<div class="confirmation-container">
+    <div class="confirmation-icon confirmation-icon-cancel" aria-hidden="true">✕</div>
+    <h1>{{t "cancel_title"}}</h1>
+    <p>{{t "cancel_success"}}</p>
+    {{if $event}}
+    <a href="/e/{{$event.Slug}}?lang={{lang}}" class="btn btn-secondary">{{t "public_back_to_event"}}</a>
+    <script>try { localStorage.removeItem('reg_' + {{json $event.Slug}}); } catch(e) {}</script>
+    {{end}}
+</div>
+{{else if and $data (index $data "Reg")}}
+{{$event := index $data "Event"}}
+{{$task := index $data "Task"}}
+{{$reg := index $data "Reg"}}
+{{$token := index $data "Token"}}
+<div class="confirmation-container">
+    <h1>{{t "cancel_title"}}</h1>
+    <p>{{t "cancel_confirm_msg"}}</p>
+
+    <div class="confirmation-details card">
+        <div class="detail-row">
+            <span class="detail-label">{{t "confirmation_task"}}</span>
+            <span class="detail-value">{{loc $task.TitleFR $task.TitleEN}}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">{{t "confirmation_first_name"}}</span>
+            <span class="detail-value">{{$reg.FirstName}} {{$reg.LastName}}</span>
+        </div>
+    </div>
+
+    <form method="POST" action="/cancel/{{$token}}?lang={{lang}}">
+        <button type="submit" class="btn btn-danger">{{t "cancel_btn"}}</button>
+    </form>
+    <a href="/e/{{$event.Slug}}?lang={{lang}}" class="btn btn-secondary">{{t "public_back_to_event"}}</a>
+</div>
+{{else}}
+<div class="confirmation-container">
+    <h1>{{t "cancel_title"}}</h1>
+    <p>{{t "cancel_not_found"}}</p>
+</div>
+{{end}}
+{{end}}
+{{template "layout" .}}

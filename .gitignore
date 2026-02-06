@@ -1,0 +1,6 @@
+event-signup-app
+data.db
+data.db-shm
+data.db-wal
+*.db
+.env

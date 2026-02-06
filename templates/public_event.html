@@ -1,0 +1,253 @@
+{{define "public-tree-node"}}
+{{$node := index . "Node"}}
+{{$depth := index . "Depth"}}
+{{if eq $node.Type "group"}}
+{{if eq $depth 0}}
+<div class="l1-group">
+    <h2 class="l1-group-title">{{loc $node.Group.TitleFR $node.Group.TitleEN}}</h2>
+    <div class="l1-group-items">
+        {{range $node.Children}}
+        {{template "public-tree-node" (dict "Node" . "Depth" 1)}}
+        {{end}}
+    </div>
+</div>
+{{else}}
+<div class="l2-group">
+    <h3 class="l2-group-title">{{loc $node.Group.TitleFR $node.Group.TitleEN}}</h3>
+    <div class="radio-task-list">
+        {{range $node.Children}}
+        {{template "public-tree-node" (dict "Node" . "Depth" 1)}}
+        {{end}}
+    </div>
+</div>
+{{end}}
+{{else}}
+<label class="radio-task {{if $node.Task.IsFull}}radio-task-full{{end}}" data-task-id="{{$node.Task.ID}}">
+    <input type="radio" name="task_id" value="{{$node.Task.ID}}" {{if $node.Task.IsFull}}disabled{{end}} required>
+    <div class="radio-task-content">
+        <div class="radio-task-header">
+            <span class="radio-task-title">{{loc $node.Task.TitleFR $node.Task.TitleEN}}</span>
+            {{if $node.Task.MaxSlots.Valid}}
+            <span class="radio-task-slots" {{if $node.Task.IsFull}}style="display:none"{{end}}>{{$node.Task.SlotsLeft}} {{t "task_slots_remaining"}}</span>
+            {{end}}
+        </div>
+        {{$tdesc := loc $node.Task.DescriptionFR $node.Task.DescriptionEN}}
+        {{if $tdesc}}
+        <span class="radio-task-desc">{{nl2br $tdesc}}</span>
+        {{end}}
+    </div>
+</label>
+{{end}}
+{{end}}
+
+{{define "content"}}
+{{$data := .Data}}
+{{$event := index $data "Event"}}
+{{$tree := index $data "Tree"}}
+
+<div class="event-header">
+    <h1>{{loc $event.TitleFR $event.TitleEN}}</h1>
+    <div class="event-meta">
+        <span class="event-meta-item">&#x1F4C5; {{formatDate $event.EventDate}}</span>
+        {{if $event.EventTime}}
+        <span class="event-meta-item">&#x1F552; {{formatTime $event.EventTime}}</span>
+        {{end}}
+    </div>
+    {{$desc := loc $event.DescriptionFR $event.DescriptionEN}}
+    {{if $desc}}
+    <div class="event-description">{{nl2br $desc}}</div>
+    {{end}}
+</div>
+
+<div id="registered-view" style="display:none">
+    <div class="registered-card card">
+        <div class="confirmation-icon" aria-hidden="true">&#x2713;</div>
+        <h2>{{t "registered_title"}}</h2>
+        <p><span id="reg-name"></span></p>
+        <p>{{t "registered_for_task"}} <strong id="reg-task-name"></strong></p>
+        <div class="registered-actions">
+            <button type="button" class="btn btn-secondary" id="btn-change">{{t "registered_change"}}</button>
+            <button type="button" class="btn btn-danger" id="btn-cancel">{{t "registered_cancel"}}</button>
+        </div>
+    </div>
+</div>
+
+<form id="signup-form" method="POST" action="/signup?lang={{lang}}" class="signup-unified">
+    <input type="hidden" id="cancel_token" name="cancel_token" value="">
+    <section id="info-panel" class="panel">
+        <h2 class="panel-title">{{t "public_signup_title"}}</h2>
+        <div class="panel-body">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="first_name">{{t "registration_first_name"}} *</label>
+                    <input type="text" id="first_name" name="first_name" required class="form-input" autocomplete="given-name">
+                </div>
+                <div class="form-group">
+                    <label for="last_name">{{t "registration_last_name"}} *</label>
+                    <input type="text" id="last_name" name="last_name" required class="form-input" autocomplete="family-name">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="email">{{t "registration_email"}} *</label>
+                    <input type="email" id="email" name="email" required class="form-input" autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label for="phone">{{t "registration_phone"}} *</label>
+                    <input type="tel" id="phone" name="phone" required class="form-input" autocomplete="tel">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="task-selection">
+        {{range $tree}}
+        {{template "public-tree-node" (dict "Node" . "Depth" 0)}}
+        {{end}}
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-block">{{t "registration_signup"}}</button>
+</form>
+
+<script>
+(function() {
+    var eventId = {{$event.ID}};
+    var eventSlug = {{json $event.Slug}};
+    var slotsLabel = {{json (t "task_slots_remaining")}};
+    var cancelConfirmMsg = {{json (t "cancel_confirm_dialog")}};
+    var storageKey = 'reg_' + eventSlug;
+    var userInfoKey = 'user_info';
+
+    // --- Slot polling ---
+    function updateSlots() {
+        fetch('/api/slots?event_id=' + eventId)
+            .then(function(r) { return r.json(); })
+            .then(function(tasks) {
+                tasks.forEach(function(t) {
+                    var label = document.querySelector('[data-task-id="' + t.id + '"]');
+                    if (!label) return;
+                    var input = label.querySelector('input[type=radio]');
+                    var slotsSpan = label.querySelector('.radio-task-slots');
+
+                    if (t.is_full) {
+                        label.classList.add('radio-task-full');
+                        input.disabled = true;
+                        if (input.checked) input.checked = false;
+                        if (slotsSpan) slotsSpan.style.display = 'none';
+                    } else {
+                        label.classList.remove('radio-task-full');
+                        input.disabled = false;
+                        if (slotsSpan) {
+                            slotsSpan.textContent = t.slots_left + ' ' + slotsLabel;
+                            slotsSpan.style.display = '';
+                        }
+                    }
+                });
+            })
+            .catch(function() {});
+    }
+    setInterval(updateSlots, 10000);
+
+    // --- Autofill from saved user info ---
+    try {
+        var savedInfo = JSON.parse(localStorage.getItem(userInfoKey));
+        if (savedInfo) {
+            if (savedInfo.firstName) document.getElementById('first_name').value = savedInfo.firstName;
+            if (savedInfo.lastName) document.getElementById('last_name').value = savedInfo.lastName;
+            if (savedInfo.email) document.getElementById('email').value = savedInfo.email;
+            if (savedInfo.phone) document.getElementById('phone').value = savedInfo.phone;
+        }
+    } catch(e) {}
+
+    // --- Save user info as they type (debounced) ---
+    var saveInfoTimer;
+    function saveUserInfo() {
+        clearTimeout(saveInfoTimer);
+        saveInfoTimer = setTimeout(function() {
+            try {
+                localStorage.setItem(userInfoKey, JSON.stringify({
+                    firstName: document.getElementById('first_name').value,
+                    lastName: document.getElementById('last_name').value,
+                    email: document.getElementById('email').value,
+                    phone: document.getElementById('phone').value
+                }));
+            } catch(e) {}
+        }, 500);
+    }
+    document.getElementById('info-panel').addEventListener('input', saveUserInfo);
+
+    // --- localStorage registration state ---
+    var regView = document.getElementById('registered-view');
+    var signupForm = document.getElementById('signup-form');
+    var infoPanel = document.getElementById('info-panel');
+    var stored = null;
+    try { stored = JSON.parse(localStorage.getItem(storageKey)); } catch(e) {}
+
+    if (stored && stored.cancelToken) {
+        showRegistered(stored);
+    }
+
+    function showRegistered(data) {
+        var taskLabel = document.querySelector('[data-task-id="' + data.taskId + '"] .radio-task-title');
+        var title = taskLabel ? taskLabel.textContent : data.taskTitle;
+        document.getElementById('reg-name').textContent = (data.firstName || '') + ' ' + (data.lastName || data.name || '');
+        document.getElementById('reg-task-name').textContent = title;
+        regView.style.display = '';
+        signupForm.style.display = 'none';
+        var descEl = document.querySelector('.event-description');
+        if (descEl) descEl.style.display = 'none';
+    }
+
+    // --- Change task ---
+    document.getElementById('btn-change').addEventListener('click', function() {
+        regView.style.display = 'none';
+        signupForm.style.display = '';
+        if (infoPanel) infoPanel.style.display = 'none';
+        if (stored) {
+            document.getElementById('first_name').value = stored.firstName || stored.name || '';
+            document.getElementById('last_name').value = stored.lastName || '';
+            document.getElementById('email').value = stored.email || '';
+            document.getElementById('phone').value = stored.phone || '';
+            document.getElementById('cancel_token').value = stored.cancelToken || '';
+            var radio = document.querySelector('input[name=task_id][value="' + stored.taskId + '"]');
+            if (radio && !radio.disabled) radio.checked = true;
+        }
+    });
+
+    // --- Inline cancel ---
+    document.getElementById('btn-cancel').addEventListener('click', function() {
+        if (!stored || !stored.cancelToken) return;
+        if (!confirm(cancelConfirmMsg)) return;
+        fetch('/cancel/' + stored.cancelToken + '?lang={{lang}}', { method: 'POST' })
+            .then(function() {
+                localStorage.removeItem(storageKey);
+                location.reload();
+            })
+            .catch(function() {
+                localStorage.removeItem(storageKey);
+                location.reload();
+            });
+    });
+
+    // --- Cross-tab detection: listen for storage events ---
+    window.addEventListener('storage', function(e) {
+        if (e.key !== storageKey) return;
+        if (e.newValue) {
+            // Registration was made in another tab
+            try {
+                var data = JSON.parse(e.newValue);
+                if (data && data.cancelToken) {
+                    stored = data;
+                    showRegistered(data);
+                }
+            } catch(ex) {}
+        } else {
+            // Registration was cancelled in another tab
+            stored = null;
+            location.reload();
+        }
+    });
+})();
+</script>
+{{end}}
+{{template "layout" .}}
