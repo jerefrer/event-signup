@@ -49,6 +49,7 @@ func (app *App) newPageData(r *http.Request, data any) PageData {
 func (app *App) render(w http.ResponseWriter, r *http.Request, tmpl string, data PageData) {
 	lang := data.Lang
 	funcs := app.buildFuncs(lang)
+	funcs["isAdmin"] = func() bool { return strings.HasPrefix(tmpl, "admin_") }
 
 	t, err := template.New("").Funcs(funcs).ParseFS(templatesFS, "templates/layout.html", "templates/"+tmpl)
 	if err != nil {

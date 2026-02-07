@@ -12,7 +12,7 @@
 <body>
     <header class="site-header">
         <div class="container header-inner">
-            <a href="/" class="site-title"><img src="/static/logo.png" alt="" class="site-logo">{{t "app_title"}}</a>
+            {{if isAdmin}}<a href="/" class="site-title"><img src="/static/logo.png" alt="" class="site-logo">{{t "app_title"}}</a>{{else}}<span class="site-title"><img src="/static/logo.png" alt="" class="site-logo">{{t "app_title"}}</span>{{end}}
             <a href="{{.LangURL}}" class="lang-switch" aria-label="{{t "lang_switch"}}">{{t "lang_switch"}}</a>
         </div>
     </header>
