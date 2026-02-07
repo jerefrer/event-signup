@@ -4,21 +4,21 @@ After=network.target
 
 [Service]
 Type=simple
-User=deploy
-Group=deploy
-WorkingDirectory=/home/deploy/event-signup
-ExecStart=/home/deploy/event-signup/event-signup-app
+User=deployer
+Group=deployer
+WorkingDirectory=/home/deployer/event-signup
+ExecStart=/home/deployer/event-signup/event-signup-app
 Restart=on-failure
 RestartSec=5
 
 # Environment
-EnvironmentFile=/home/deploy/event-signup/.env
+EnvironmentFile=/home/deployer/event-signup/.env
 
 # Security hardening
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/home/deploy/event-signup
+ReadWritePaths=/home/deployer/event-signup
 PrivateTmp=true
 
 [Install]

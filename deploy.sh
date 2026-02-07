@@ -2,10 +2,18 @@
 set -euo pipefail
 
 HOST="${1:?Usage: ./deploy.sh hostname}"
-REMOTE_DIR="/home/deploy/event-signup"
+REMOTE_DIR="/home/deployer/event-signup"
 
 echo "Building..."
-CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o event-signup-app
+CGO_ENABLED=1 GOOS=linux GOARCH=amd64 CC="zig cc -target x86_64-linux-musl" CXX="zig c++ -target x86_64-linux-musl" go build -ldflags="-s -w" -o event-signup-app
+
+echo "Ensuring remote directory exists..."
+ssh "root@$HOST" bash -s <<SETUP
+set -euo pipefail
+id deployer &>/dev/null || useradd -m -s /bin/bash deployer
+mkdir -p $REMOTE_DIR
+chown deployer:deployer $REMOTE_DIR
+SETUP
 
 echo "Uploading files..."
 scp event-signup-app "deployer@$HOST:$REMOTE_DIR/event-signup-app.new"
@@ -23,10 +31,10 @@ nginx -t
 nginx -s reload
 
 # App
-chown deploy:deploy /home/deploy/event-signup/.env
-chmod 600 /home/deploy/event-signup/.env
+chown deployer:deployer /home/deployer/event-signup/.env
+chmod 600 /home/deployer/event-signup/.env
 systemctl stop event-signup || true
-cd /home/deploy/event-signup
+cd /home/deployer/event-signup
 mv event-signup-app.new event-signup-app
 chmod +x event-signup-app
 systemctl daemon-reload

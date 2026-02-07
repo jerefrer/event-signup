@@ -22,7 +22,9 @@
       "Bash(xargs kill:*)",
       "Bash(python3:*)",
       "Bash(sqlite3:*)",
-      "Bash(CGO_ENABLED=1 go test:*)"
+      "Bash(CGO_ENABLED=1 go test:*)",
+      "Bash(zig version:*)",
+      "Bash(brew install:*)"
     ]
   }
 }
