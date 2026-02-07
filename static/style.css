@@ -77,7 +77,8 @@ main.container { flex: 1; padding-top: 2rem; padding-bottom: 3rem; }
     backdrop-filter: blur(8px);
 }
 .header-inner { display: flex; justify-content: space-between; align-items: center; }
-.site-title { color: var(--color-text); text-decoration: none; font-size: var(--text-base); font-weight: 600; letter-spacing: -0.01em; }
+.site-title { color: var(--color-text); text-decoration: none; font-size: var(--text-base); font-weight: 600; letter-spacing: -0.01em; display: flex; align-items: center; gap: 0.5rem; }
+.site-logo { height: 1.75rem; width: auto; }
 .lang-switch {
     color: var(--color-text-secondary);
     text-decoration: none;
