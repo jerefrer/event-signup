@@ -260,6 +260,9 @@ textarea.event-desc-textarea { min-height: 12rem; }
 .save-indicator.saved { color: var(--color-success-dark); border-color: var(--color-success); }
 .save-indicator.error { color: var(--color-danger); border-color: var(--color-danger); pointer-events: auto; }
 
+/* Wide container for data-heavy admin pages */
+.container-wide { max-width: 1200px; }
+
 /* Tables */
 .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .data-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }

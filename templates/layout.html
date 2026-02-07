@@ -16,7 +16,7 @@
             <a href="{{.LangURL}}" class="lang-switch" aria-label="{{t "lang_switch"}}">{{t "lang_switch"}}</a>
         </div>
     </header>
-    <main class="container">
+    <main class="container{{if isAdmin}} container-wide{{end}}">
         {{if .Error}}
         <div class="alert alert-error" role="alert">{{.Error}}</div>
         {{end}}
