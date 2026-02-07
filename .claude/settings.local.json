@@ -25,10 +25,9 @@
       "Bash(CGO_ENABLED=1 go test:*)",
       "Bash(zig version:*)",
       "Bash(brew install:*)",
-      "Bash(ssh root@chanteloube.fr \"ls -la /home/deployer/event-signup/data.db 2>/dev/null || echo ''file not found''; ls -la /home/deployer/event-signup/\")",
       "Bash(ssh:*)",
       "Bash(scp:*)",
-      "Bash(ssh root@chanteloube.fr \"rm -f /home/deployer/event-signup/data.db-wal /home/deployer/event-signup/data.db-shm && chown deployer:deployer /home/deployer/event-signup/data.db && systemctl start event-signup\")"
+      "Bash(go build:*)"
     ]
   }
 }
