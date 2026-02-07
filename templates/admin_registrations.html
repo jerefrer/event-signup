@@ -6,11 +6,11 @@
 
 <div class="admin-header">
     <div class="header-left">
-        <a href="/admin/event/edit?id={{$event.ID}}&lang={{lang}}" class="btn-back" title="{{t "back"}}">&#x2190;</a>
+        <a href="/admin?lang={{lang}}" class="btn-back" title="{{t "back"}}"><i class="fa-solid fa-arrow-left"></i></a>
         <h1>{{t "section_registrations"}} — {{loc $event.TitleFR $event.TitleEN}}</h1>
     </div>
     <div class="admin-actions">
-        {{if $totalRegs}}<a href="/admin/export?event_id={{$event.ID}}" class="btn btn-secondary">{{t "registration_export_csv"}}</a>{{end}}
+        {{if $totalRegs}}<a href="/admin/export?event_id={{$event.ID}}" class="btn btn-secondary"><i class="fa-solid fa-download"></i> {{t "registration_export_csv"}}</a>{{end}}
     </div>
 </div>
 
@@ -49,7 +49,7 @@
                             <form method="POST" action="/admin/registrations/delete" class="inline-form" onsubmit="return confirm('{{t "registration_delete_confirm"}}')">
                                 <input type="hidden" name="id" value="{{.ID}}">
                                 <input type="hidden" name="event_id" value="{{$event.ID}}">
-                                <button type="submit" class="btn btn-sm btn-danger">{{t "delete"}}</button>
+                                <button type="submit" class="btn btn-sm btn-danger"><i class="fa-solid fa-trash"></i> {{t "delete"}}</button>
                             </form>
                         </td>
                     </tr>

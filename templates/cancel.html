@@ -8,7 +8,7 @@
     <h1>{{t "cancel_title"}}</h1>
     <p>{{t "cancel_success"}}</p>
     {{if $event}}
-    <a href="/e/{{$event.Slug}}?lang={{lang}}" class="btn btn-secondary">{{t "public_back_to_event"}}</a>
+    <a href="/e/{{$event.Slug}}?lang={{lang}}" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> {{t "public_back_to_event"}}</a>
     <script>try { localStorage.removeItem('reg_' + {{json $event.Slug}}); } catch(e) {}</script>
     {{end}}
 </div>
@@ -33,9 +33,9 @@
     </div>
 
     <form method="POST" action="/cancel/{{$token}}?lang={{lang}}">
-        <button type="submit" class="btn btn-danger">{{t "cancel_btn"}}</button>
+        <button type="submit" class="btn btn-danger"><i class="fa-solid fa-xmark"></i> {{t "cancel_btn"}}</button>
     </form>
-    <a href="/e/{{$event.Slug}}?lang={{lang}}" class="btn btn-secondary">{{t "public_back_to_event"}}</a>
+    <a href="/e/{{$event.Slug}}?lang={{lang}}" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> {{t "public_back_to_event"}}</a>
 </div>
 {{else}}
 <div class="confirmation-container">

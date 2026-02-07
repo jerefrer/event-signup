@@ -9,7 +9,7 @@
             <input type="text" data-field="title_fr" value="{{$node.Group.TitleFR}}" placeholder="{{t "group_title_fr"}}">
             <input type="text" data-field="title_en" value="{{$node.Group.TitleEN}}" placeholder="{{t "group_title_en"}}">
         </div>
-        <button type="button" class="btn-icon" onclick="deleteItem('group', {{$node.Group.ID}})" title="{{t "delete"}}">&#x2715;</button>
+        <button type="button" class="btn-icon" onclick="deleteItem('group', {{$node.Group.ID}})" title="{{t "delete"}}"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="tree-children" data-group-id="{{$node.Group.ID}}">
         {{range $node.Children}}
@@ -39,7 +39,7 @@
                 <input type="number" min="0" class="slots-input" data-field="max_slots" value="{{if $node.Task.MaxSlots.Valid}}{{$node.Task.MaxSlots.Int64}}{{end}}" placeholder="&#8734;">
                 {{if $node.Task.RegCount}}<span class="slots-count">({{$node.Task.RegCount}})</span>{{end}}
             </div>
-            <button type="button" class="btn-icon" onclick="deleteItem('task', {{$node.Task.ID}})" title="{{t "delete"}}">&#x2715;</button>
+            <button type="button" class="btn-icon" onclick="deleteItem('task', {{$node.Task.ID}})" title="{{t "delete"}}"><i class="fa-solid fa-xmark"></i></button>
         </div>
     </div>
 </div>
@@ -53,7 +53,7 @@
 
 <div class="admin-header">
     <div class="header-left">
-        <a href="/admin?lang={{lang}}" class="btn-back" title="{{t "back"}}">&#x2190;</a>
+        <a href="/admin?lang={{lang}}" class="btn-back" title="{{t "back"}}"><i class="fa-solid fa-arrow-left"></i></a>
         {{if $isNew}}
         <h1>{{t "event_new"}}</h1>
         {{else}}
@@ -98,7 +98,7 @@
             </div>
         </div>
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary">{{t "create"}}</button>
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> {{t "create"}}</button>
         </div>
     </form>
     {{else}}
@@ -136,7 +136,7 @@
         <div class="public-link-inline" style="margin-top:0.75rem;">
             {{t "event_public_link"}}:
             <code class="slug-url" id="public-url">{{index $data "BaseURL"}}/e/{{$event.Slug}}</code>
-            <button type="button" class="btn btn-sm btn-secondary" onclick="copyLink()">{{t "event_copy_link"}}</button>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="copyLink()"><i class="fa-solid fa-copy"></i> {{t "event_copy_link"}}</button>
         </div>
     </div>
     {{end}}
@@ -162,7 +162,7 @@
             <span>{{t "ai_default_one"}}</span>
         </label>
         <div class="ai-actions">
-            <button type="button" class="btn btn-primary" onclick="aiParse('update')">{{t "ai_submit"}}</button>
+            <button type="button" class="btn btn-primary" onclick="aiParse('update')"><i class="fa-solid fa-wand-magic-sparkles"></i> {{t "ai_submit"}}</button>
         </div>
         <div id="ai-status" class="ai-status" style="display:none;" data-loading="{{t "ai_loading"}}" data-success="{{t "ai_success"}}" data-error="{{t "ai_error"}}"></div>
     </div>
@@ -176,7 +176,7 @@
         {{if $tree}}
         <form method="POST" action="/admin/clear-all" class="inline-form" onsubmit="return confirm('{{t "group_clear_confirm"}}')">
             <input type="hidden" name="event_id" value="{{$event.ID}}">
-            <button type="submit" class="btn btn-sm btn-danger">{{t "group_clear_all"}}</button>
+            <button type="submit" class="btn btn-sm btn-danger"><i class="fa-solid fa-trash"></i> {{t "group_clear_all"}}</button>
         </form>
         {{end}}
     </div>
@@ -189,8 +189,8 @@
         </div>
 
         <div class="create-buttons">
-            <button type="button" class="btn btn-secondary" onclick="createGroup()">+ {{t "group_new"}}</button>
-            <button type="button" class="btn btn-secondary" onclick="createTask()">+ {{t "task_new"}}</button>
+            <button type="button" class="btn btn-secondary" onclick="createGroup()"><i class="fa-solid fa-plus"></i> {{t "group_new"}}</button>
+            <button type="button" class="btn btn-secondary" onclick="createTask()"><i class="fa-solid fa-plus"></i> {{t "task_new"}}</button>
         </div>
     </div>
 </section>

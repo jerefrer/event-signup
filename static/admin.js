@@ -46,9 +46,9 @@ function copyLink() {
         navigator.clipboard.writeText(el.textContent.trim());
         var btn = el.nextElementSibling;
         if (btn) {
-            var orig = btn.textContent;
-            btn.textContent = btn.getAttribute('data-copied') || 'Copied!';
-            setTimeout(function() { btn.textContent = orig; }, 1500);
+            var orig = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> ' + (btn.getAttribute('data-copied') || 'Copied!');
+            setTimeout(function() { btn.innerHTML = orig; }, 1500);
         }
     }
 }

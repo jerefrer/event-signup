@@ -66,8 +66,8 @@
         <p><span id="reg-name"></span></p>
         <p>{{t "registered_for_task"}} <strong id="reg-task-name"></strong></p>
         <div class="registered-actions">
-            <button type="button" class="btn btn-secondary" id="btn-change">{{t "registered_change"}}</button>
-            <button type="button" class="btn btn-danger" id="btn-cancel">{{t "registered_cancel"}}</button>
+            <button type="button" class="btn btn-secondary" id="btn-change"><i class="fa-solid fa-pencil"></i> {{t "registered_change"}}</button>
+            <button type="button" class="btn btn-danger" id="btn-cancel"><i class="fa-solid fa-xmark"></i> {{t "registered_cancel"}}</button>
         </div>
     </div>
 </div>
@@ -106,7 +106,7 @@
         {{end}}
     </div>
 
-    <button type="submit" class="btn btn-primary btn-block">{{t "registration_signup"}}</button>
+    <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-check"></i> {{t "registration_signup"}}</button>
 </form>
 
 <script>

@@ -2,8 +2,8 @@
 <div class="admin-header">
     <h1>{{t "events"}}</h1>
     <div class="admin-actions">
-        <a href="/admin/event/new?lang={{lang}}" class="btn btn-primary">{{t "event_new"}}</a>
-        <a href="/admin/logout" class="btn btn-secondary">{{t "admin_logout"}}</a>
+        <a href="/admin/event/new?lang={{lang}}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> {{t "event_new"}}</a>
+        <a href="/admin/logout" class="btn btn-secondary"><i class="fa-solid fa-right-from-bracket"></i> {{t "admin_logout"}}</a>
     </div>
 </div>
 
@@ -23,15 +23,15 @@
             <div class="public-link-inline" style="margin-top:0.5rem;">
                 {{t "event_public_link"}}:
                 <a href="{{$baseURL}}/e/{{.Slug}}" target="_blank" class="slug-url">{{$baseURL}}/e/{{.Slug}}</a>
-                <button type="button" class="btn btn-sm btn-secondary" onclick="copyUrl(this)" data-url="{{$baseURL}}/e/{{.Slug}}">{{t "event_copy_link"}}</button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="copyUrl(this)" data-url="{{$baseURL}}/e/{{.Slug}}"><i class="fa-solid fa-copy"></i> {{t "event_copy_link"}}</button>
             </div>
         </div>
         <div class="card-actions">
             <a href="/admin/event/registrations?id={{.ID}}&lang={{lang}}" class="btn btn-sm btn-secondary">{{t "section_registrations"}}{{if .RegCount}} <span class="count-badge">{{.RegCount}}</span>{{end}}</a>
-            <a href="/admin/event/edit?id={{.ID}}&lang={{lang}}" class="btn btn-sm btn-primary">{{t "edit"}}</a>
+            <a href="/admin/event/edit?id={{.ID}}&lang={{lang}}" class="btn btn-sm btn-primary"><i class="fa-solid fa-pencil"></i> {{t "edit"}}</a>
             <form method="POST" action="/admin/event/delete" class="inline-form" onsubmit="return confirm('{{t "event_delete_confirm"}}')">
                 <input type="hidden" name="id" value="{{.ID}}">
-                <button type="submit" class="btn btn-sm btn-danger">{{t "delete"}}</button>
+                <button type="submit" class="btn btn-sm btn-danger"><i class="fa-solid fa-trash"></i> {{t "delete"}}</button>
             </form>
         </div>
     </div>
@@ -41,9 +41,9 @@
 <script>
 function copyUrl(btn) {
     navigator.clipboard.writeText(btn.dataset.url);
-    var orig = btn.textContent;
-    btn.textContent = '{{t "event_copied"}}';
-    setTimeout(function() { btn.textContent = orig; }, 1500);
+    var orig = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> {{t "event_copied"}}';
+    setTimeout(function() { btn.innerHTML = orig; }, 1500);
 }
 </script>
 {{end}}
