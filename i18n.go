@@ -103,6 +103,7 @@ var translations = map[string]Translations{
 	"registration_delete_confirm": {"fr": "Supprimer cette inscription ?", "en": "Delete this registration?"},
 	"registration_total":       {"fr": "Total inscriptions", "en": "Total registrations"},
 	"registration_view_all":    {"fr": "Voir les inscriptions", "en": "View registrations"},
+	"registration_group":       {"fr": "Groupe", "en": "Group"},
 	"registration_search":      {"fr": "Rechercher…", "en": "Search…"},
 
 	// Public

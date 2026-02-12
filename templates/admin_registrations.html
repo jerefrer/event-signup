@@ -17,7 +17,10 @@
 <section class="panel">
     <div class="panel-header">
         <h2 class="panel-title">{{t "registration_total"}}: {{$totalRegs}}</h2>
-        {{if $totalRegs}}<input type="text" id="reg-search" class="form-input form-input-sm" placeholder="{{t "registration_search"}}" style="max-width:220px;">{{end}}
+        {{if $totalRegs}}<div style="position:relative;max-width:220px;">
+            <input type="text" id="reg-search" class="form-input form-input-sm" placeholder="{{t "registration_search"}}" style="width:100%;padding-right:28px;">
+            <button type="button" id="reg-search-clear" style="display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:2px 4px;color:#999;font-size:14px;line-height:1;" title="Clear"><i class="fa-solid fa-xmark"></i></button>
+        </div>{{end}}
     </div>
     <div class="panel-body">
         {{if not $totalRegs}}
@@ -27,12 +30,13 @@
             <table class="data-table" id="reg-table">
                 <thead>
                     <tr>
-                        <th class="sortable" data-col="0">{{t "registration_last_name"}} &#x25B4;</th>
+                        <th class="sortable" data-col="0">{{t "registration_last_name"}}</th>
                         <th class="sortable" data-col="1">{{t "registration_first_name"}}</th>
-                        <th class="sortable" data-col="2">{{t "confirmation_task"}}</th>
-                        <th class="sortable" data-col="3">{{t "registration_email"}}</th>
-                        <th class="sortable" data-col="4">{{t "registration_phone"}}</th>
-                        <th class="sortable" data-col="5">{{t "registration_date"}}</th>
+                        <th class="sortable" data-col="2">{{t "registration_group"}}</th>
+                        <th class="sortable" data-col="3">{{t "confirmation_task"}}</th>
+                        <th class="sortable" data-col="4">{{t "registration_email"}}</th>
+                        <th class="sortable" data-col="5">{{t "registration_phone"}}</th>
+                        <th class="sortable" data-col="6">{{t "registration_date"}}</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -41,7 +45,8 @@
                     <tr>
                         <td>{{.LastName}}</td>
                         <td>{{.FirstName}}</td>
-                        <td>{{.TaskTitle}}</td>
+                        <td>{{loc .GroupTitle .GroupTitleEN}}</td>
+                        <td>{{loc .TaskTitle .TaskTitleEN}}</td>
                         <td>{{.Email}}</td>
                         <td>{{.Phone}}</td>
                         <td data-sort="{{.CreatedAt.Unix}}">{{formatDateTime .CreatedAt}}</td>
@@ -69,7 +74,17 @@
     var thead = table.querySelector('thead');
     var tbody = table.querySelector('tbody');
     var headers = thead.querySelectorAll('.sortable');
-    var currentCol = 0, ascending = true;
+    // Default sort: by group (col 2) if any group is set, otherwise by last name (col 0)
+    var hasGroups = Array.from(tbody.querySelectorAll('tr')).some(function(row) {
+        return row.children[2] && row.children[2].textContent.trim() !== '';
+    });
+    var currentCol = hasGroups ? 2 : 0, ascending = true;
+
+    // Set initial arrow on the correct header
+    headers.forEach(function(h) { h.textContent = h.textContent.replace(/ [\u25B4\u25BE]$/, ''); });
+    headers.forEach(function(h) {
+        if (parseInt(h.getAttribute('data-col')) === currentCol) h.textContent += ' \u25B4';
+    });
 
     headers.forEach(function(th) {
         th.style.cursor = 'pointer';
@@ -103,13 +118,21 @@
     }
 
     var search = document.getElementById('reg-search');
+    var clearBtn = document.getElementById('reg-search-clear');
     if (search) {
-        search.addEventListener('input', function() {
+        function filterRows() {
             var q = search.value.toLowerCase();
+            clearBtn.style.display = q ? '' : 'none';
             var rows = tbody.querySelectorAll('tr');
             rows.forEach(function(row) {
                 row.style.display = row.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
             });
+        }
+        search.addEventListener('input', filterRows);
+        clearBtn.addEventListener('click', function() {
+            search.value = '';
+            filterRows();
+            search.focus();
         });
     }
 })();

@@ -665,24 +665,33 @@ func ListRegistrations(db *sql.DB, taskID int64) ([]Registration, error) {
 }
 
 type RegistrationExport struct {
-	ID         int64
-	GroupTitle  string
-	TaskTitle   string
-	FirstName   string
-	LastName    string
-	Email       string
-	Phone       string
-	CreatedAt   time.Time
+	ID           int64
+	GroupTitle   string
+	GroupTitleEN string
+	TaskTitle    string
+	TaskTitleEN  string
+	FirstName    string
+	LastName     string
+	Email        string
+	Phone        string
+	CreatedAt    time.Time
 }
 
 func ListAllRegistrations(db *sql.DB, eventID int64) ([]RegistrationExport, error) {
 	rows, err := db.Query(`
-		SELECT r.id, COALESCE(tg.title_fr, ''), t.title_fr, r.first_name, r.last_name, r.email, r.phone, r.created_at
+		WITH RECURSIVE root_group AS (
+			SELECT id, id AS root_id, title_fr, title_en
+			FROM task_groups WHERE parent_group_id IS NULL
+			UNION ALL
+			SELECT tg.id, rg.root_id, rg.title_fr, rg.title_en
+			FROM task_groups tg JOIN root_group rg ON tg.parent_group_id = rg.id
+		)
+		SELECT r.id, COALESCE(rg.title_fr, ''), COALESCE(rg.title_en, ''), t.title_fr, t.title_en, r.first_name, r.last_name, r.email, r.phone, r.created_at
 		FROM registrations r
 		JOIN tasks t ON r.task_id = t.id
-		LEFT JOIN task_groups tg ON t.group_id = tg.id
+		LEFT JOIN root_group rg ON t.group_id = rg.id
 		WHERE t.event_id = ?
-		ORDER BY r.last_name, r.first_name
+		ORDER BY CASE WHEN rg.title_fr IS NOT NULL THEN 0 ELSE 1 END, rg.title_fr, r.last_name, r.first_name
 	`, eventID)
 	if err != nil {
 		return nil, err
@@ -691,7 +700,7 @@ func ListAllRegistrations(db *sql.DB, eventID int64) ([]RegistrationExport, erro
 	var exports []RegistrationExport
 	for rows.Next() {
 		var e RegistrationExport
-		rows.Scan(&e.ID, &e.GroupTitle, &e.TaskTitle, &e.FirstName, &e.LastName, &e.Email, &e.Phone, &e.CreatedAt)
+		rows.Scan(&e.ID, &e.GroupTitle, &e.GroupTitleEN, &e.TaskTitle, &e.TaskTitleEN, &e.FirstName, &e.LastName, &e.Email, &e.Phone, &e.CreatedAt)
 		exports = append(exports, e)
 	}
 	return exports, rows.Err()
