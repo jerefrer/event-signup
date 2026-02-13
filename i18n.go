@@ -154,6 +154,40 @@ var translations = map[string]Translations{
 	"cancel_confirm_dialog":     {"fr": "Êtes-vous sûr(e) de vouloir annuler votre inscription ?", "en": "Are you sure you want to cancel your registration?"},
 	"cancel_success_inline":     {"fr": "Votre inscription a été annulée.", "en": "Your registration has been cancelled."},
 
+	// Event type
+	"event_type":            {"fr": "Type d'événement", "en": "Event type"},
+	"event_type_tasks":      {"fr": "Inscription aux tâches", "en": "Task signup"},
+	"event_type_attendance": {"fr": "Présence (RSVP)", "en": "Attendance (RSVP)"},
+
+	// Public RSVP
+	"rsvp_title":              {"fr": "Confirmer votre présence", "en": "Confirm Your Attendance"},
+	"rsvp_attending_label":    {"fr": "Serez-vous présent(e) ?", "en": "Will you attend?"},
+	"rsvp_attending_yes":      {"fr": "Oui", "en": "Yes"},
+	"rsvp_attending_no":       {"fr": "Non", "en": "No"},
+	"rsvp_message":            {"fr": "Message (optionnel)", "en": "Message (optional)"},
+	"rsvp_message_placeholder": {"fr": "Un commentaire, une question…", "en": "A comment, a question…"},
+	"rsvp_submit":             {"fr": "Envoyer ma réponse", "en": "Submit my response"},
+	"rsvp_confirmed_yes":      {"fr": "Vous avez confirmé votre présence !", "en": "You confirmed your attendance!"},
+	"rsvp_confirmed_no":       {"fr": "Merci de nous avoir prévenu(e).", "en": "Thank you for letting us know."},
+	"rsvp_updated":            {"fr": "Votre réponse a été mise à jour.", "en": "Your response has been updated."},
+	"rsvp_lookup_title":       {"fr": "Déjà répondu ?", "en": "Already responded?"},
+	"rsvp_lookup_hint":        {"fr": "Entrez votre email pour retrouver et modifier votre réponse.", "en": "Enter your email to find and update your response."},
+	"rsvp_lookup_btn":         {"fr": "Rechercher", "en": "Look up"},
+	"rsvp_lookup_not_found":   {"fr": "Aucune réponse trouvée pour cet email.", "en": "No response found for this email."},
+	"rsvp_change":             {"fr": "Modifier ma réponse", "en": "Change my response"},
+
+	// Admin attendance
+	"section_attendances":        {"fr": "Présences", "en": "Attendances"},
+	"attendance_total":           {"fr": "au total", "en": "total"},
+	"attendance_attending":       {"fr": "Présent(e)", "en": "Attending"},
+	"attendance_not_attending":   {"fr": "Absent(e)", "en": "Not attending"},
+	"attendance_yes":             {"fr": "Oui", "en": "Yes"},
+	"attendance_no":              {"fr": "Non", "en": "No"},
+	"attendance_message":         {"fr": "Message", "en": "Message"},
+	"attendance_delete_confirm":  {"fr": "Supprimer cette réponse ?", "en": "Delete this response?"},
+	"attendance_no_responses":    {"fr": "Aucune réponse.", "en": "No responses yet."},
+	"attendance_summary":         {"fr": "présent(e)s", "en": "attending"},
+
 	// Errors
 	"error_title":        {"fr": "Erreur", "en": "Error"},
 	"error_not_found":    {"fr": "Page introuvable.", "en": "Page not found."},

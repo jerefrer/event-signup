@@ -19,7 +19,10 @@
     <div class="card">
         <div class="card-body">
             <h2 class="card-title">{{loc .TitleFR .TitleEN}}</h2>
-            <p class="card-meta">{{formatDate .EventDate}}{{if .EventTime}} {{t "public_event_at"}} {{formatTime .EventTime}}{{end}}</p>
+            <p class="card-meta">
+                {{formatDate .EventDate}}{{if .EventTime}} {{t "public_event_at"}} {{formatTime .EventTime}}{{end}}
+                {{if eq .EventType "attendance"}} · <span class="badge badge-info">{{t "event_type_attendance"}}</span>{{end}}
+            </p>
             <div class="public-link-inline" style="margin-top:0.5rem;">
                 {{t "event_public_link"}}:
                 <a href="{{$baseURL}}/e/{{.Slug}}" target="_blank" class="slug-url">{{$baseURL}}/e/{{.Slug}}</a>
@@ -27,7 +30,11 @@
             </div>
         </div>
         <div class="card-actions">
+            {{if eq .EventType "attendance"}}
+            <a href="/admin/event/attendances?id={{.ID}}&lang={{lang}}" class="btn btn-sm btn-secondary">{{t "section_attendances"}}{{if .RegCount}} <span class="count-badge">{{.RegCount}}</span>{{end}}</a>
+            {{else}}
             <a href="/admin/event/registrations?id={{.ID}}&lang={{lang}}" class="btn btn-sm btn-secondary">{{t "section_registrations"}}{{if .RegCount}} <span class="count-badge">{{.RegCount}}</span>{{end}}</a>
+            {{end}}
             <a href="/admin/event/edit?id={{.ID}}&lang={{lang}}" class="btn btn-sm btn-primary"><i class="fa-solid fa-pencil"></i> {{t "edit"}}</a>
             <form method="POST" action="/admin/event/delete" class="inline-form" onsubmit="return confirm('{{t "event_delete_confirm"}}')">
                 <input type="hidden" name="id" value="{{.ID}}">

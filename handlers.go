@@ -186,7 +186,11 @@ func (app *App) handleAdminLogout(w http.ResponseWriter, r *http.Request) {
 func (app *App) handleAdminEvents(w http.ResponseWriter, r *http.Request) {
 	events, _ := ListEvents(app.DB)
 	for i := range events {
-		events[i].RegCount = CountRegistrations(app.DB, events[i].ID)
+		if events[i].EventType == "attendance" {
+			_, events[i].RegCount = CountAttendances(app.DB, events[i].ID)
+		} else {
+			events[i].RegCount = CountRegistrations(app.DB, events[i].ID)
+		}
 	}
 	pd := app.newPageData(r, map[string]any{
 		"Events":  events,
@@ -199,6 +203,10 @@ func (app *App) handleAdminEvents(w http.ResponseWriter, r *http.Request) {
 
 func (app *App) handleAdminEventNew(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
+		eventType := r.FormValue("event_type")
+		if eventType != "attendance" {
+			eventType = "tasks"
+		}
 		e := &Event{
 			TitleFR:       r.FormValue("title_fr"),
 			TitleEN:       r.FormValue("title_en"),
@@ -206,6 +214,7 @@ func (app *App) handleAdminEventNew(w http.ResponseWriter, r *http.Request) {
 			DescriptionEN: r.FormValue("description_en"),
 			EventDate:     r.FormValue("event_date"),
 			EventTime:     r.FormValue("event_time"),
+			EventType:     eventType,
 		}
 		if e.TitleFR == "" || e.EventDate == "" {
 			pd := app.newPageData(r, map[string]any{"Event": e, "IsNew": true})
@@ -264,22 +273,30 @@ func (app *App) handleAdminEventEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *App) eventEditData(event *Event) map[string]any {
-	tree, _ := BuildEventTree(app.DB, event.ID)
-	flatGroups, _ := BuildFlatGroupList(app.DB, event.ID)
-	loadTreeRegistrations(app.DB, tree)
-	allTasks := CollectTaskViews(tree)
-	totalRegs := CountRegistrations(app.DB, event.ID)
-
-	return map[string]any{
-		"Event":      event,
-		"IsNew":      false,
-		"Tree":       tree,
-		"FlatGroups": flatGroups,
-		"AllTasks":   allTasks,
-		"TotalRegs":  totalRegs,
-		"BaseURL":    app.BaseURL,
-		"HasAI":      app.AnthropicKey != "",
+	data := map[string]any{
+		"Event":   event,
+		"IsNew":   false,
+		"BaseURL": app.BaseURL,
 	}
+
+	if event.EventType == "attendance" {
+		yesCount, totalCount := CountAttendances(app.DB, event.ID)
+		data["AttendanceYes"] = yesCount
+		data["AttendanceTotal"] = totalCount
+	} else {
+		tree, _ := BuildEventTree(app.DB, event.ID)
+		flatGroups, _ := BuildFlatGroupList(app.DB, event.ID)
+		loadTreeRegistrations(app.DB, tree)
+		allTasks := CollectTaskViews(tree)
+		totalRegs := CountRegistrations(app.DB, event.ID)
+		data["Tree"] = tree
+		data["FlatGroups"] = flatGroups
+		data["AllTasks"] = allTasks
+		data["TotalRegs"] = totalRegs
+		data["HasAI"] = app.AnthropicKey != ""
+	}
+
+	return data
 }
 
 func loadTreeRegistrations(db *sql.DB, nodes []TreeNode) {
@@ -447,6 +464,10 @@ func (app *App) handleAdminExportCSV(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Not found", 404)
 		return
 	}
+	if event.EventType == "attendance" {
+		app.handleAdminExportAttendanceCSV(w, r)
+		return
+	}
 	regs, _ := ListAllRegistrations(app.DB, eventID)
 
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
@@ -497,15 +518,26 @@ func (app *App) handleAPIEventSave(w http.ResponseWriter, r *http.Request) {
 		DescriptionEN string `json:"description_en"`
 		EventDate     string `json:"event_date"`
 		EventTime     string `json:"event_time"`
+		EventType     string `json:"event_type"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error":"bad request"}`, 400)
 		return
 	}
+	// Preserve existing event type if not provided (auto-save doesn't send it)
+	eventType := req.EventType
+	if eventType == "" {
+		existing, err := GetEvent(app.DB, req.EventID)
+		if err == nil {
+			eventType = existing.EventType
+		} else {
+			eventType = "tasks"
+		}
+	}
 	e := &Event{
 		ID: req.EventID, TitleFR: req.TitleFR, TitleEN: req.TitleEN,
 		DescriptionFR: req.DescriptionFR, DescriptionEN: req.DescriptionEN,
-		EventDate: req.EventDate, EventTime: req.EventTime,
+		EventDate: req.EventDate, EventTime: req.EventTime, EventType: eventType,
 	}
 	if err := UpdateEvent(app.DB, e); err != nil {
 		http.Error(w, `{"error":"save failed"}`, 500)
@@ -655,6 +687,10 @@ func (app *App) handleAdminRegistrations(w http.ResponseWriter, r *http.Request)
 		http.Redirect(w, r, "/admin", http.StatusSeeOther)
 		return
 	}
+	if event.EventType == "attendance" {
+		http.Redirect(w, r, fmt.Sprintf("/admin/event/attendances?id=%d&lang=%s", id, LangFromRequest(r)), http.StatusSeeOther)
+		return
+	}
 	allRegs, _ := ListAllRegistrations(app.DB, event.ID)
 	totalRegs := CountRegistrations(app.DB, event.ID)
 
@@ -704,6 +740,11 @@ func (app *App) handlePublicEvent(w http.ResponseWriter, r *http.Request) {
 	event, err := GetEventBySlug(app.DB, slug)
 	if err != nil {
 		http.NotFound(w, r)
+		return
+	}
+	if event.EventType == "attendance" {
+		pd := app.newPageData(r, map[string]any{"Event": event})
+		app.render(w, r, "public_attendance.html", pd)
 		return
 	}
 	tree, _ := BuildEventTree(app.DB, event.ID)
@@ -820,4 +861,155 @@ func (app *App) handlePublicCancel(w http.ResponseWriter, r *http.Request) {
 
 	pd := app.newPageData(r, map[string]any{"Event": event, "Task": task, "Reg": reg, "Token": token})
 	app.render(w, r, "cancel.html", pd)
+}
+
+// ---- Public RSVP ----
+
+func (app *App) handlePublicRSVP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	lang := LangFromRequest(r)
+	eventID, _ := strconv.ParseInt(r.FormValue("event_id"), 10, 64)
+	event, err := GetEvent(app.DB, eventID)
+	if err != nil || event.EventType != "attendance" {
+		http.NotFound(w, r)
+		return
+	}
+
+	firstName := strings.TrimSpace(r.FormValue("first_name"))
+	lastName := strings.TrimSpace(r.FormValue("last_name"))
+	email := strings.TrimSpace(r.FormValue("email"))
+	phone := strings.TrimSpace(r.FormValue("phone"))
+	attendingStr := r.FormValue("attending")
+	message := strings.TrimSpace(r.FormValue("message"))
+
+	if firstName == "" || lastName == "" || email == "" {
+		pd := app.newPageData(r, map[string]any{"Event": event})
+		pd.Error = T("error_invalid_form", lang)
+		app.render(w, r, "public_attendance.html", pd)
+		return
+	}
+
+	attending := attendingStr == "yes"
+
+	att, err := UpsertAttendance(app.DB, event.ID, firstName, lastName, email, phone, attending, message)
+	if err != nil {
+		log.Printf("rsvp error: %v", err)
+		pd := app.newPageData(r, map[string]any{"Event": event})
+		pd.Error = T("error_server", lang)
+		app.render(w, r, "public_attendance.html", pd)
+		return
+	}
+
+	pd := app.newPageData(r, map[string]any{
+		"Event":      event,
+		"Attendance": att,
+	})
+	if att.Attending {
+		pd.Success = T("rsvp_confirmed_yes", lang)
+	} else {
+		pd.Success = T("rsvp_confirmed_no", lang)
+	}
+	app.render(w, r, "public_attendance.html", pd)
+}
+
+func (app *App) handlePublicRSVPLookup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, 405)
+		return
+	}
+	var req struct {
+		EventID int64  `json:"event_id"`
+		Email   string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"bad request"}`, 400)
+		return
+	}
+	att, err := GetAttendanceByEmail(app.DB, req.Email, req.EventID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"found":false}`))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"found":      true,
+		"first_name": att.FirstName,
+		"last_name":  att.LastName,
+		"email":      att.Email,
+		"phone":      att.Phone,
+		"attending":  att.Attending,
+		"message":    att.Message,
+	})
+}
+
+// ---- Admin Attendances ----
+
+func (app *App) handleAdminAttendances(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
+	event, err := GetEvent(app.DB, id)
+	if err != nil {
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+		return
+	}
+	attendances, _ := ListAttendances(app.DB, event.ID)
+	yesCount, totalCount := CountAttendances(app.DB, event.ID)
+
+	pd := app.newPageData(r, map[string]any{
+		"Event":       event,
+		"Attendances": attendances,
+		"YesCount":    yesCount,
+		"NoCount":     totalCount - yesCount,
+		"TotalCount":  totalCount,
+	})
+	app.render(w, r, "admin_attendances.html", pd)
+}
+
+func (app *App) handleAdminAttendanceDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+		return
+	}
+	lang := LangFromRequest(r)
+	eventID, _ := strconv.ParseInt(r.FormValue("event_id"), 10, 64)
+	id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	DeleteAttendance(app.DB, id)
+	http.Redirect(w, r, fmt.Sprintf("/admin/event/attendances?id=%d&lang=%s", eventID, lang), http.StatusSeeOther)
+}
+
+func (app *App) handleAdminExportAttendanceCSV(w http.ResponseWriter, r *http.Request) {
+	eventID, _ := strconv.ParseInt(r.URL.Query().Get("event_id"), 10, 64)
+	event, err := GetEvent(app.DB, eventID)
+	if err != nil {
+		http.Error(w, "Not found", 404)
+		return
+	}
+	lang := LangFromRequest(r)
+	attendances, _ := ListAttendances(app.DB, eventID)
+
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s-presences.csv"`, event.Slug))
+	w.Write([]byte{0xEF, 0xBB, 0xBF})
+
+	cw := csv.NewWriter(w)
+	cw.Write([]string{
+		T("registration_last_name", lang),
+		T("registration_first_name", lang),
+		T("registration_email", lang),
+		T("registration_phone", lang),
+		T("attendance_attending", lang),
+		T("attendance_message", lang),
+		T("registration_date", lang),
+	})
+	for _, a := range attendances {
+		attending := T("attendance_no", lang)
+		if a.Attending {
+			attending = T("attendance_yes", lang)
+		}
+		cw.Write([]string{a.LastName, a.FirstName, a.Email, a.Phone, attending, a.Message, a.CreatedAt.Format("2006-01-02 15:04")})
+	}
+	cw.Flush()
 }

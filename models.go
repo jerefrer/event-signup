@@ -21,6 +21,7 @@ type Event struct {
 	DescriptionEN string
 	EventDate     string
 	EventTime     string
+	EventType     string // "tasks" or "attendance"
 	CreatedAt     time.Time
 	RegCount      int
 }
@@ -102,6 +103,8 @@ func InitDB(dbPath string) (*sql.DB, error) {
 	migrateColumn(db, "task_groups", "parent_group_id", "ALTER TABLE task_groups ADD COLUMN parent_group_id INTEGER REFERENCES task_groups(id) ON DELETE SET NULL")
 
 	// Migrate registrations: name → first_name + last_name
+	migrateColumn(db, "events", "event_type", "ALTER TABLE events ADD COLUMN event_type TEXT NOT NULL DEFAULT 'tasks'")
+
 	migrateColumn(db, "registrations", "first_name", "ALTER TABLE registrations ADD COLUMN first_name TEXT NOT NULL DEFAULT ''")
 	migrateColumn(db, "registrations", "last_name", "ALTER TABLE registrations ADD COLUMN last_name TEXT NOT NULL DEFAULT ''")
 	// Copy old name to last_name for existing records
@@ -220,11 +223,11 @@ func EnsureUniqueSlug(db *sql.DB, slug string, excludeID int64) (string, error) 
 
 // ---- Event CRUD ----
 
-const eventCols = "id, slug, title_fr, title_en, description_fr, description_en, event_date, event_time, created_at"
+const eventCols = "id, slug, title_fr, title_en, description_fr, description_en, event_date, event_time, event_type, created_at"
 
 func scanEvent(row interface{ Scan(...any) error }) (*Event, error) {
 	e := &Event{}
-	err := row.Scan(&e.ID, &e.Slug, &e.TitleFR, &e.TitleEN, &e.DescriptionFR, &e.DescriptionEN, &e.EventDate, &e.EventTime, &e.CreatedAt)
+	err := row.Scan(&e.ID, &e.Slug, &e.TitleFR, &e.TitleEN, &e.DescriptionFR, &e.DescriptionEN, &e.EventDate, &e.EventTime, &e.EventType, &e.CreatedAt)
 	return e, err
 }
 
@@ -234,9 +237,12 @@ func CreateEvent(db *sql.DB, e *Event) error {
 		return err
 	}
 	e.Slug = slug
+	if e.EventType == "" {
+		e.EventType = "tasks"
+	}
 	res, err := db.Exec(
-		"INSERT INTO events (slug, title_fr, title_en, description_fr, description_en, event_date, event_time) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		e.Slug, e.TitleFR, e.TitleEN, e.DescriptionFR, e.DescriptionEN, e.EventDate, e.EventTime,
+		"INSERT INTO events (slug, title_fr, title_en, description_fr, description_en, event_date, event_time, event_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		e.Slug, e.TitleFR, e.TitleEN, e.DescriptionFR, e.DescriptionEN, e.EventDate, e.EventTime, e.EventType,
 	)
 	if err != nil {
 		return err
@@ -247,8 +253,8 @@ func CreateEvent(db *sql.DB, e *Event) error {
 
 func UpdateEvent(db *sql.DB, e *Event) error {
 	_, err := db.Exec(
-		"UPDATE events SET title_fr=?, title_en=?, description_fr=?, description_en=?, event_date=?, event_time=? WHERE id=?",
-		e.TitleFR, e.TitleEN, e.DescriptionFR, e.DescriptionEN, e.EventDate, e.EventTime, e.ID,
+		"UPDATE events SET title_fr=?, title_en=?, description_fr=?, description_en=?, event_date=?, event_time=?, event_type=? WHERE id=?",
+		e.TitleFR, e.TitleEN, e.DescriptionFR, e.DescriptionEN, e.EventDate, e.EventTime, e.EventType, e.ID,
 	)
 	return err
 }
@@ -724,4 +730,103 @@ func CollectTaskViews(tree []TreeNode) []TaskView {
 		}
 	}
 	return result
+}
+
+// ---- Attendance (RSVP) ----
+
+type Attendance struct {
+	ID        int64
+	EventID   int64
+	FirstName string
+	LastName  string
+	Email     string
+	Phone     string
+	Attending bool
+	Message   string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func UpsertAttendance(db *sql.DB, eventID int64, firstName, lastName, email, phone string, attending bool, message string) (*Attendance, error) {
+	attendingInt := 0
+	if attending {
+		attendingInt = 1
+	}
+	// Try to find existing attendance by email for this event
+	var existingID int64
+	err := db.QueryRow("SELECT id FROM attendances WHERE event_id=? AND LOWER(email)=LOWER(?)", eventID, email).Scan(&existingID)
+	if err == nil {
+		// Update existing
+		_, err = db.Exec(
+			"UPDATE attendances SET first_name=?, last_name=?, phone=?, attending=?, message=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+			firstName, lastName, phone, attendingInt, message, existingID,
+		)
+		if err != nil {
+			return nil, err
+		}
+		return GetAttendance(db, existingID)
+	}
+	// Insert new
+	res, err := db.Exec(
+		"INSERT INTO attendances (event_id, first_name, last_name, email, phone, attending, message) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		eventID, firstName, lastName, email, phone, attendingInt, message,
+	)
+	if err != nil {
+		return nil, err
+	}
+	id, _ := res.LastInsertId()
+	return GetAttendance(db, id)
+}
+
+func GetAttendance(db *sql.DB, id int64) (*Attendance, error) {
+	a := &Attendance{}
+	var attendingInt int
+	err := db.QueryRow(
+		"SELECT id, event_id, first_name, last_name, email, phone, attending, message, created_at, updated_at FROM attendances WHERE id=?", id,
+	).Scan(&a.ID, &a.EventID, &a.FirstName, &a.LastName, &a.Email, &a.Phone, &attendingInt, &a.Message, &a.CreatedAt, &a.UpdatedAt)
+	a.Attending = attendingInt != 0
+	return a, err
+}
+
+func GetAttendanceByEmail(db *sql.DB, email string, eventID int64) (*Attendance, error) {
+	a := &Attendance{}
+	var attendingInt int
+	err := db.QueryRow(
+		"SELECT id, event_id, first_name, last_name, email, phone, attending, message, created_at, updated_at FROM attendances WHERE LOWER(email)=LOWER(?) AND event_id=?", email, eventID,
+	).Scan(&a.ID, &a.EventID, &a.FirstName, &a.LastName, &a.Email, &a.Phone, &attendingInt, &a.Message, &a.CreatedAt, &a.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	a.Attending = attendingInt != 0
+	return a, nil
+}
+
+func ListAttendances(db *sql.DB, eventID int64) ([]Attendance, error) {
+	rows, err := db.Query(
+		"SELECT id, event_id, first_name, last_name, email, phone, attending, message, created_at, updated_at FROM attendances WHERE event_id=? ORDER BY last_name, first_name", eventID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var attendances []Attendance
+	for rows.Next() {
+		var a Attendance
+		var attendingInt int
+		rows.Scan(&a.ID, &a.EventID, &a.FirstName, &a.LastName, &a.Email, &a.Phone, &attendingInt, &a.Message, &a.CreatedAt, &a.UpdatedAt)
+		a.Attending = attendingInt != 0
+		attendances = append(attendances, a)
+	}
+	return attendances, rows.Err()
+}
+
+func CountAttendances(db *sql.DB, eventID int64) (yesCount, totalCount int) {
+	db.QueryRow("SELECT COUNT(*) FROM attendances WHERE event_id=? AND attending=1", eventID).Scan(&yesCount)
+	db.QueryRow("SELECT COUNT(*) FROM attendances WHERE event_id=?", eventID).Scan(&totalCount)
+	return
+}
+
+func DeleteAttendance(db *sql.DB, id int64) error {
+	_, err := db.Exec("DELETE FROM attendances WHERE id=?", id)
+	return err
 }

@@ -87,6 +87,8 @@ func main() {
 
 	// Registrations page
 	mux.HandleFunc("/admin/event/registrations", app.requireAdmin(app.handleAdminRegistrations))
+	mux.HandleFunc("/admin/event/attendances", app.requireAdmin(app.handleAdminAttendances))
+	mux.HandleFunc("/admin/attendances/delete", app.requireAdmin(app.handleAdminAttendanceDelete))
 
 	// JSON APIs
 	mux.HandleFunc("/admin/api/reorder", app.requireAdmin(app.handleAPIReorder))
@@ -106,6 +108,8 @@ func main() {
 	// Public routes
 	mux.HandleFunc("/e/", app.handlePublicEvent)
 	mux.HandleFunc("/signup", app.handlePublicSignup)
+	mux.HandleFunc("/rsvp", app.handlePublicRSVP)
+	mux.HandleFunc("/rsvp/lookup", app.handlePublicRSVPLookup)
 	mux.HandleFunc("/cancel/", app.handlePublicCancel)
 
 	// Root redirect

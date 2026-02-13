@@ -181,6 +181,20 @@ select.form-input { appearance: auto; }
 .badge-full { background: var(--color-danger-bg); color: var(--color-danger); }
 .badge-available { background: var(--color-success-bg); color: var(--color-success-dark); }
 .badge-unlimited { background: var(--color-bg); color: var(--color-text-muted); }
+.badge-success { background: var(--color-success-bg); color: var(--color-success-dark); }
+.badge-danger { background: var(--color-danger-bg); color: var(--color-danger); }
+.badge-info { background: #e8f0fe; color: #1a73e8; }
+
+/* RSVP toggle buttons */
+.rsvp-toggle { display: inline-flex; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--color-border); }
+.rsvp-toggle input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+.rsvp-toggle label { padding: 0.625rem 1.75rem; font-size: var(--text-base); font-weight: 600; cursor: pointer; transition: all var(--transition); color: var(--color-text-secondary); background: var(--color-surface); user-select: none; margin-bottom: 0; }
+.rsvp-toggle label:first-of-type { border-right: 1px solid var(--color-border); }
+.rsvp-toggle input[value="yes"]:checked + label { background: var(--color-success-bg); color: var(--color-success-dark); }
+.rsvp-toggle input[value="no"]:checked + label { background: var(--color-danger-bg); color: var(--color-danger); }
+.rsvp-toggle label:hover { background: var(--color-bg); }
+.rsvp-toggle input:checked + label:hover { filter: brightness(0.97); }
+
 .count-badge {
     display: inline-flex; align-items: center; justify-content: center; min-width: 1.5rem; height: 1.5rem;
     padding: 0 0.375rem; border-radius: 100px; background: var(--color-primary-bg); color: var(--color-primary);

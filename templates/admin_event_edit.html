@@ -97,6 +97,19 @@
                 <textarea id="description_en" name="description_en" rows="4" class="form-input event-desc-textarea">{{$event.DescriptionEN}}</textarea>
             </div>
         </div>
+        <div class="form-group" style="margin-top:0.75rem;">
+            <label style="font-weight:600;">{{t "event_type"}}</label>
+            <div style="display:flex;gap:1.5rem;margin-top:0.25rem;">
+                <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;">
+                    <input type="radio" name="event_type" value="tasks" checked>
+                    {{t "event_type_tasks"}}
+                </label>
+                <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;">
+                    <input type="radio" name="event_type" value="attendance">
+                    {{t "event_type_attendance"}}
+                </label>
+            </div>
+        </div>
         <div class="form-actions">
             <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> {{t "create"}}</button>
         </div>
@@ -143,6 +156,27 @@
 </section>
 
 {{if not $isNew}}
+
+{{if eq $event.EventType "attendance"}}
+<!-- Attendance Summary -->
+{{$attYes := index $data "AttendanceYes"}}
+{{$attTotal := index $data "AttendanceTotal"}}
+<section class="panel">
+    <div class="panel-header">
+        <h2 class="panel-title">{{t "section_attendances"}}</h2>
+    </div>
+    <div class="panel-body">
+        {{if $attTotal}}
+        <p style="font-size:1.1rem;">
+            <strong>{{$attYes}}</strong> {{t "attendance_summary"}} / {{$attTotal}} {{t "attendance_total"}}
+        </p>
+        <a href="/admin/event/attendances?id={{$event.ID}}&lang={{lang}}" class="btn btn-secondary" style="margin-top:0.5rem;"><i class="fa-solid fa-list"></i> {{t "registration_view_all"}}</a>
+        {{else}}
+        <p class="empty-state-sm">{{t "attendance_no_responses"}}</p>
+        {{end}}
+    </div>
+</section>
+{{else}}
 {{$tree := index $data "Tree"}}
 
 <!-- AI Import -->
@@ -197,6 +231,7 @@
 
 <script src="/static/sortable.min.js"></script>
 <script src="/static/admin.js"></script>
+{{end}}
 {{end}}
 {{end}}
 {{template "layout" .}}

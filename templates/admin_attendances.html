@@ -1,0 +1,142 @@
+{{define "content"}}
+{{$data := .Data}}
+{{$event := index $data "Event"}}
+{{$attendances := index $data "Attendances"}}
+{{$yesCount := index $data "YesCount"}}
+{{$noCount := index $data "NoCount"}}
+{{$totalCount := index $data "TotalCount"}}
+
+<div class="admin-header">
+    <div class="header-left">
+        <a href="/admin?lang={{lang}}" class="btn-back" title="{{t "back"}}"><i class="fa-solid fa-arrow-left"></i></a>
+        <h1>{{t "section_attendances"}} — {{loc $event.TitleFR $event.TitleEN}}</h1>
+    </div>
+    <div class="admin-actions">
+        {{if $totalCount}}<a href="/admin/export?event_id={{$event.ID}}" class="btn btn-secondary"><i class="fa-solid fa-download"></i> {{t "registration_export_csv"}}</a>{{end}}
+    </div>
+</div>
+
+<section class="panel">
+    <div class="panel-header">
+        <h2 class="panel-title" style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+            <span class="badge badge-success" style="font-size:0.95rem;padding:0.35rem 0.85rem;gap:0.4rem;"><i class="fa-solid fa-check"></i> {{$yesCount}} {{t "attendance_yes"}}</span>
+            <span class="badge badge-danger" style="font-size:0.95rem;padding:0.35rem 0.85rem;gap:0.4rem;"><i class="fa-solid fa-xmark"></i> {{$noCount}} {{t "attendance_no"}}</span>
+        </h2>
+        {{if $totalCount}}<div style="position:relative;max-width:220px;">
+            <input type="text" id="reg-search" class="form-input form-input-sm" placeholder="{{t "registration_search"}}" style="width:100%;padding-right:28px;">
+            <button type="button" id="reg-search-clear" style="display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:2px 4px;color:#999;font-size:14px;line-height:1;" title="Clear"><i class="fa-solid fa-xmark"></i></button>
+        </div>{{end}}
+    </div>
+    <div class="panel-body">
+        {{if not $totalCount}}
+        <p class="empty-state-sm">{{t "attendance_no_responses"}}</p>
+        {{else}}
+        <div class="table-responsive">
+            <table class="data-table" id="reg-table">
+                <thead>
+                    <tr>
+                        <th class="sortable" data-col="0">{{t "registration_last_name"}}</th>
+                        <th class="sortable" data-col="1">{{t "registration_first_name"}}</th>
+                        <th class="sortable" data-col="2">{{t "registration_email"}}</th>
+                        <th class="sortable" data-col="3">{{t "registration_phone"}}</th>
+                        <th class="sortable" data-col="4">{{t "attendance_attending"}}</th>
+                        <th class="sortable" data-col="5">{{t "attendance_message"}}</th>
+                        <th class="sortable" data-col="6">{{t "registration_date"}}</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range $attendances}}
+                    <tr>
+                        <td>{{.LastName}}</td>
+                        <td>{{.FirstName}}</td>
+                        <td>{{.Email}}</td>
+                        <td>{{.Phone}}</td>
+                        <td data-sort="{{if .Attending}}1{{else}}0{{end}}">
+                            {{if .Attending}}<span class="badge badge-success">{{t "attendance_yes"}}</span>{{else}}<span class="badge badge-danger">{{t "attendance_no"}}</span>{{end}}
+                        </td>
+                        <td>{{.Message}}</td>
+                        <td data-sort="{{.CreatedAt.Unix}}">{{formatDateTime .CreatedAt}}</td>
+                        <td>
+                            <form method="POST" action="/admin/attendances/delete" class="inline-form" onsubmit="return confirm('{{t "attendance_delete_confirm"}}')">
+                                <input type="hidden" name="id" value="{{.ID}}">
+                                <input type="hidden" name="event_id" value="{{$event.ID}}">
+                                <button type="submit" class="btn btn-sm btn-danger"><i class="fa-solid fa-trash"></i> {{t "delete"}}</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{end}}
+    </div>
+</section>
+
+{{if $totalCount}}
+<script>
+(function() {
+    var table = document.getElementById('reg-table');
+    if (!table) return;
+    var thead = table.querySelector('thead');
+    var tbody = table.querySelector('tbody');
+    var headers = thead.querySelectorAll('.sortable');
+    var currentCol = 0, ascending = true;
+
+    headers.forEach(function(h) { h.textContent = h.textContent.replace(/ [\u25B4\u25BE]$/, ''); });
+    headers[0].textContent += ' \u25B4';
+
+    headers.forEach(function(th) {
+        th.style.cursor = 'pointer';
+        th.addEventListener('click', function() {
+            var col = parseInt(th.getAttribute('data-col'));
+            if (col === currentCol) {
+                ascending = !ascending;
+            } else {
+                currentCol = col;
+                ascending = true;
+            }
+            sortTable(col, ascending);
+            headers.forEach(function(h) { h.textContent = h.textContent.replace(/ [\u25B4\u25BE]$/, ''); });
+            th.textContent += ascending ? ' \u25B4' : ' \u25BE';
+        });
+    });
+
+    function sortTable(col, asc) {
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+        rows.sort(function(a, b) {
+            var cellA = a.children[col];
+            var cellB = b.children[col];
+            var va = cellA.getAttribute('data-sort') || cellA.textContent.trim().toLowerCase();
+            var vb = cellB.getAttribute('data-sort') || cellB.textContent.trim().toLowerCase();
+            if (!isNaN(va) && !isNaN(vb)) { va = parseFloat(va); vb = parseFloat(vb); }
+            if (va < vb) return asc ? -1 : 1;
+            if (va > vb) return asc ? 1 : -1;
+            return 0;
+        });
+        rows.forEach(function(row) { tbody.appendChild(row); });
+    }
+
+    var search = document.getElementById('reg-search');
+    var clearBtn = document.getElementById('reg-search-clear');
+    if (search) {
+        function filterRows() {
+            var q = search.value.toLowerCase();
+            clearBtn.style.display = q ? '' : 'none';
+            var rows = tbody.querySelectorAll('tr');
+            rows.forEach(function(row) {
+                row.style.display = row.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+            });
+        }
+        search.addEventListener('input', filterRows);
+        clearBtn.addEventListener('click', function() {
+            search.value = '';
+            filterRows();
+            search.focus();
+        });
+    }
+})();
+</script>
+{{end}}
+{{end}}
+{{template "layout" .}}
