@@ -187,7 +187,10 @@ func (app *App) handleAdminEvents(w http.ResponseWriter, r *http.Request) {
 	events, _ := ListEvents(app.DB)
 	for i := range events {
 		if events[i].EventType == "attendance" {
-			_, events[i].RegCount = CountAttendances(app.DB, events[i].ID)
+			yesCount, totalCount := CountAttendances(app.DB, events[i].ID)
+			events[i].RegCount = totalCount
+			events[i].AttendanceYes = yesCount
+			events[i].AttendanceNo = totalCount - yesCount
 		} else {
 			events[i].RegCount = CountRegistrations(app.DB, events[i].ID)
 		}
@@ -913,6 +916,37 @@ func (app *App) handlePublicRSVP(w http.ResponseWriter, r *http.Request) {
 		pd.Success = T("rsvp_confirmed_no", lang)
 	}
 	app.render(w, r, "public_attendance.html", pd)
+}
+
+func (app *App) handlePublicRSVPLookup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, 405)
+		return
+	}
+	var req struct {
+		EventID int64  `json:"event_id"`
+		Email   string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"bad request"}`, 400)
+		return
+	}
+	att, err := GetAttendanceByEmail(app.DB, req.Email, req.EventID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"found":false}`))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"found":      true,
+		"first_name": att.FirstName,
+		"last_name":  att.LastName,
+		"email":      att.Email,
+		"phone":      att.Phone,
+		"attending":  att.Attending,
+		"message":    att.Message,
+	})
 }
 
 // ---- Admin Attendances ----

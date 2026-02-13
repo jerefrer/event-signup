@@ -200,6 +200,8 @@ select.form-input { appearance: auto; }
     padding: 0 0.375rem; border-radius: 100px; background: var(--color-primary-bg); color: var(--color-primary);
     font-size: var(--text-xs); font-weight: 600; margin-left: 0.375rem;
 }
+.count-badge.count-yes { background: #e8f5e9; color: #2e7d32; }
+.count-badge.count-no { background: #fce4ec; color: #c62828; margin-left: 0.125rem; }
 
 /* Tree structure (admin drag-and-drop with SortableJS) */
 .tree-root { min-height: 2rem; padding: 0.25rem 0; }

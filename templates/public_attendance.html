@@ -17,7 +17,19 @@
     {{end}}
 </div>
 
-<form id="rsvp-form" method="POST" action="/rsvp?lang={{lang}}" class="signup-unified">
+<div id="rsvp-confirmed" {{if not $att}}style="display:none"{{end}}>
+    <div class="registered-card card">
+        <div id="confirm-icon" class="confirmation-icon{{if and $att (not $att.Attending)}} confirmation-icon-cancel{{end}}" aria-hidden="true">{{if and $att $att.Attending}}&#x2713;{{else}}&#x2717;{{end}}</div>
+        <h2 id="confirm-title">{{if and $att $att.Attending}}{{t "rsvp_confirmed_yes"}}{{else}}{{t "rsvp_confirmed_no"}}{{end}}</h2>
+        <p><strong id="confirm-name">{{if $att}}{{$att.FirstName}} {{$att.LastName}}{{end}}</strong></p>
+        <p id="confirm-message" style="color:#666;font-style:italic;{{if or (not $att) (not $att.Message)}}display:none{{end}}">{{if $att}}{{$att.Message}}{{end}}</p>
+        <div class="registered-actions">
+            <button type="button" class="btn btn-secondary" id="btn-change-rsvp"><i class="fa-solid fa-pencil"></i> {{t "rsvp_change"}}</button>
+        </div>
+    </div>
+</div>
+
+<form id="rsvp-form" method="POST" action="/rsvp?lang={{lang}}" class="signup-unified" {{if $att}}style="display:none"{{end}}>
     <input type="hidden" name="event_id" value="{{$event.ID}}">
     <section class="panel">
         <h2 class="panel-title">{{t "rsvp_title"}}</h2>
@@ -65,10 +77,39 @@
 
 <script>
 (function() {
+    var eventId = {{$event.ID}};
     var eventSlug = {{json $event.Slug}};
     var storageKey = 'rsvp_' + eventSlug;
     var userInfoKey = 'user_info';
+    var confirmedYesMsg = {{json (t "rsvp_confirmed_yes")}};
+    var confirmedNoMsg = {{json (t "rsvp_confirmed_no")}};
+
+    var rsvpConfirmed = document.getElementById('rsvp-confirmed');
     var rsvpForm = document.getElementById('rsvp-form');
+
+    function showConfirmation(data) {
+        document.getElementById('confirm-name').textContent = data.firstName + ' ' + data.lastName;
+        var icon = document.getElementById('confirm-icon');
+        var title = document.getElementById('confirm-title');
+        var msg = document.getElementById('confirm-message');
+        if (data.attending) {
+            icon.innerHTML = '&#x2713;';
+            icon.className = 'confirmation-icon';
+            title.textContent = confirmedYesMsg;
+        } else {
+            icon.innerHTML = '&#x2717;';
+            icon.className = 'confirmation-icon confirmation-icon-cancel';
+            title.textContent = confirmedNoMsg;
+        }
+        if (data.message) {
+            msg.textContent = data.message;
+            msg.style.display = '';
+        } else {
+            msg.style.display = 'none';
+        }
+        rsvpConfirmed.style.display = '';
+        rsvpForm.style.display = 'none';
+    }
 
     {{if $att}}
     // Save to localStorage after server-side confirmation
@@ -81,14 +122,47 @@
         }));
     } catch(e) {}
     {{else}}
-    // Pre-fill from localStorage
+    // If returning user has a stored RSVP, auto-fetch their current response
     try {
-        var savedInfo = JSON.parse(localStorage.getItem(userInfoKey));
-        if (savedInfo) {
-            if (savedInfo.firstName) document.getElementById('first_name').value = savedInfo.firstName;
-            if (savedInfo.lastName) document.getElementById('last_name').value = savedInfo.lastName;
-            if (savedInfo.email) document.getElementById('email').value = savedInfo.email;
-            if (savedInfo.phone) document.getElementById('phone').value = savedInfo.phone;
+        var storedRsvp = JSON.parse(localStorage.getItem(storageKey));
+        if (storedRsvp && storedRsvp.email) {
+            fetch('/rsvp/lookup', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({event_id: eventId, email: storedRsvp.email})
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.found) {
+                    // Pre-fill the form for when they click "change"
+                    document.getElementById('first_name').value = data.first_name;
+                    document.getElementById('last_name').value = data.last_name;
+                    document.getElementById('email').value = data.email;
+                    document.getElementById('phone').value = data.phone || '';
+                    document.getElementById('message').value = data.message || '';
+                    var radios = document.querySelectorAll('input[name=attending]');
+                    radios.forEach(function(r) {
+                        r.checked = (data.attending && r.value === 'yes') || (!data.attending && r.value === 'no');
+                    });
+                    // Show confirmation card
+                    showConfirmation({
+                        firstName: data.first_name,
+                        lastName: data.last_name,
+                        attending: data.attending,
+                        message: data.message
+                    });
+                }
+            })
+            .catch(function() {});
+        } else {
+            // No stored RSVP, pre-fill basic info from localStorage
+            var savedInfo = JSON.parse(localStorage.getItem(userInfoKey));
+            if (savedInfo) {
+                if (savedInfo.firstName) document.getElementById('first_name').value = savedInfo.firstName;
+                if (savedInfo.lastName) document.getElementById('last_name').value = savedInfo.lastName;
+                if (savedInfo.email) document.getElementById('email').value = savedInfo.email;
+                if (savedInfo.phone) document.getElementById('phone').value = savedInfo.phone;
+            }
         }
     } catch(e) {}
     {{end}}
@@ -109,6 +183,12 @@
         }, 500);
     }
     rsvpForm.addEventListener('input', saveUserInfo);
+
+    // Change button — show form, hide confirmation
+    document.getElementById('btn-change-rsvp').addEventListener('click', function() {
+        rsvpConfirmed.style.display = 'none';
+        rsvpForm.style.display = '';
+    });
 })();
 </script>
 {{end}}

@@ -170,6 +170,7 @@ var translations = map[string]Translations{
 	"rsvp_confirmed_yes":      {"fr": "Vous avez confirmé votre présence !", "en": "You confirmed your attendance!"},
 	"rsvp_confirmed_no":       {"fr": "Merci de nous avoir prévenu(e).", "en": "Thank you for letting us know."},
 	"rsvp_updated":            {"fr": "Votre réponse a été mise à jour.", "en": "Your response has been updated."},
+	"rsvp_change":             {"fr": "Modifier ma réponse", "en": "Change my response"},
 
 	// Admin attendance
 	"section_attendances":        {"fr": "Présences", "en": "Attendances"},

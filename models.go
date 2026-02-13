@@ -24,6 +24,8 @@ type Event struct {
 	EventType     string // "tasks" or "attendance"
 	CreatedAt     time.Time
 	RegCount      int
+	AttendanceYes int
+	AttendanceNo  int
 }
 
 type TaskGroup struct {
@@ -786,6 +788,19 @@ func GetAttendance(db *sql.DB, id int64) (*Attendance, error) {
 	).Scan(&a.ID, &a.EventID, &a.FirstName, &a.LastName, &a.Email, &a.Phone, &attendingInt, &a.Message, &a.CreatedAt, &a.UpdatedAt)
 	a.Attending = attendingInt != 0
 	return a, err
+}
+
+func GetAttendanceByEmail(db *sql.DB, email string, eventID int64) (*Attendance, error) {
+	a := &Attendance{}
+	var attendingInt int
+	err := db.QueryRow(
+		"SELECT id, event_id, first_name, last_name, email, phone, attending, message, created_at, updated_at FROM attendances WHERE LOWER(email)=LOWER(?) AND event_id=?", email, eventID,
+	).Scan(&a.ID, &a.EventID, &a.FirstName, &a.LastName, &a.Email, &a.Phone, &attendingInt, &a.Message, &a.CreatedAt, &a.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	a.Attending = attendingInt != 0
+	return a, nil
 }
 
 func ListAttendances(db *sql.DB, eventID int64) ([]Attendance, error) {

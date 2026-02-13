@@ -31,7 +31,7 @@
         </div>
         <div class="card-actions">
             {{if eq .EventType "attendance"}}
-            <a href="/admin/event/attendances?id={{.ID}}&lang={{lang}}" class="btn btn-sm btn-secondary">{{t "section_attendances"}}{{if .RegCount}} <span class="count-badge">{{.RegCount}}</span>{{end}}</a>
+            <a href="/admin/event/attendances?id={{.ID}}&lang={{lang}}" class="btn btn-sm btn-secondary">{{t "section_attendances"}}{{if .RegCount}} <span class="count-badge count-yes">&#x2713; {{.AttendanceYes}}</span> <span class="count-badge count-no">&#x2717; {{.AttendanceNo}}</span>{{end}}</a>
             {{else}}
             <a href="/admin/event/registrations?id={{.ID}}&lang={{lang}}" class="btn btn-sm btn-secondary">{{t "section_registrations"}}{{if .RegCount}} <span class="count-badge">{{.RegCount}}</span>{{end}}</a>
             {{end}}
