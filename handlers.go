@@ -915,37 +915,6 @@ func (app *App) handlePublicRSVP(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "public_attendance.html", pd)
 }
 
-func (app *App) handlePublicRSVPLookup(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, `{"error":"method not allowed"}`, 405)
-		return
-	}
-	var req struct {
-		EventID int64  `json:"event_id"`
-		Email   string `json:"email"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error":"bad request"}`, 400)
-		return
-	}
-	att, err := GetAttendanceByEmail(app.DB, req.Email, req.EventID)
-	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"found":false}`))
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{
-		"found":      true,
-		"first_name": att.FirstName,
-		"last_name":  att.LastName,
-		"email":      att.Email,
-		"phone":      att.Phone,
-		"attending":  att.Attending,
-		"message":    att.Message,
-	})
-}
-
 // ---- Admin Attendances ----
 
 func (app *App) handleAdminAttendances(w http.ResponseWriter, r *http.Request) {

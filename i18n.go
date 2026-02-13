@@ -170,11 +170,6 @@ var translations = map[string]Translations{
 	"rsvp_confirmed_yes":      {"fr": "Vous avez confirmé votre présence !", "en": "You confirmed your attendance!"},
 	"rsvp_confirmed_no":       {"fr": "Merci de nous avoir prévenu(e).", "en": "Thank you for letting us know."},
 	"rsvp_updated":            {"fr": "Votre réponse a été mise à jour.", "en": "Your response has been updated."},
-	"rsvp_lookup_title":       {"fr": "Déjà répondu ?", "en": "Already responded?"},
-	"rsvp_lookup_hint":        {"fr": "Entrez votre email pour retrouver et modifier votre réponse.", "en": "Enter your email to find and update your response."},
-	"rsvp_lookup_btn":         {"fr": "Rechercher", "en": "Look up"},
-	"rsvp_lookup_not_found":   {"fr": "Aucune réponse trouvée pour cet email.", "en": "No response found for this email."},
-	"rsvp_change":             {"fr": "Modifier ma réponse", "en": "Change my response"},
 
 	// Admin attendance
 	"section_attendances":        {"fr": "Présences", "en": "Attendances"},

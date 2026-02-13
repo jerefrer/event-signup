@@ -17,37 +17,7 @@
     {{end}}
 </div>
 
-{{if $att}}
-<div id="rsvp-confirmed" class="registered-card card">
-    <div class="confirmation-icon{{if not $att.Attending}} confirmation-icon-cancel{{end}}" aria-hidden="true">{{if $att.Attending}}&#x2713;{{else}}&#x2717;{{end}}</div>
-    <h2>{{if $att.Attending}}{{t "rsvp_confirmed_yes"}}{{else}}{{t "rsvp_confirmed_no"}}{{end}}</h2>
-    <p><strong>{{$att.FirstName}} {{$att.LastName}}</strong></p>
-    {{if $att.Message}}<p style="color:#666;font-style:italic;">{{$att.Message}}</p>{{end}}
-    <div class="registered-actions">
-        <button type="button" class="btn btn-secondary" id="btn-change-rsvp"><i class="fa-solid fa-pencil"></i> {{t "rsvp_change"}}</button>
-    </div>
-</div>
-{{end}}
-
-<div id="rsvp-lookup" {{if $att}}style="display:none"{{end}}>
-    <section class="panel" style="margin-bottom:1rem;">
-        <h2 class="panel-title">{{t "rsvp_lookup_title"}}</h2>
-        <div class="panel-body">
-            <p class="form-hint" style="margin-bottom:0.5rem;">{{t "rsvp_lookup_hint"}}</p>
-            <div class="form-row" style="align-items:flex-end;">
-                <div class="form-group" style="flex:1;">
-                    <input type="email" id="lookup-email" class="form-input" placeholder="email@example.com" autocomplete="email">
-                </div>
-                <div class="form-group" style="flex:0 0 auto;">
-                    <button type="button" class="btn btn-secondary" id="btn-lookup"><i class="fa-solid fa-magnifying-glass"></i> {{t "rsvp_lookup_btn"}}</button>
-                </div>
-            </div>
-            <p id="lookup-error" class="form-hint" style="color:#c0392b;display:none;">{{t "rsvp_lookup_not_found"}}</p>
-        </div>
-    </section>
-</div>
-
-<form id="rsvp-form" method="POST" action="/rsvp?lang={{lang}}" class="signup-unified" {{if $att}}style="display:none"{{end}}>
+<form id="rsvp-form" method="POST" action="/rsvp?lang={{lang}}" class="signup-unified">
     <input type="hidden" name="event_id" value="{{$event.ID}}">
     <section class="panel">
         <h2 class="panel-title">{{t "rsvp_title"}}</h2>
@@ -55,37 +25,37 @@
             <div class="form-row">
                 <div class="form-group">
                     <label for="first_name">{{t "registration_first_name"}} *</label>
-                    <input type="text" id="first_name" name="first_name" required class="form-input" autocomplete="given-name">
+                    <input type="text" id="first_name" name="first_name" required class="form-input" autocomplete="given-name" {{if $att}}value="{{$att.FirstName}}"{{end}}>
                 </div>
                 <div class="form-group">
                     <label for="last_name">{{t "registration_last_name"}} *</label>
-                    <input type="text" id="last_name" name="last_name" required class="form-input" autocomplete="family-name">
+                    <input type="text" id="last_name" name="last_name" required class="form-input" autocomplete="family-name" {{if $att}}value="{{$att.LastName}}"{{end}}>
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group">
                     <label for="email">{{t "registration_email"}} *</label>
-                    <input type="email" id="email" name="email" required class="form-input" autocomplete="email">
+                    <input type="email" id="email" name="email" required class="form-input" autocomplete="email" {{if $att}}value="{{$att.Email}}"{{end}}>
                 </div>
                 <div class="form-group">
                     <label for="phone">{{t "registration_phone"}}</label>
-                    <input type="tel" id="phone" name="phone" class="form-input" autocomplete="tel">
+                    <input type="tel" id="phone" name="phone" class="form-input" autocomplete="tel" {{if $att}}value="{{$att.Phone}}"{{end}}>
                 </div>
             </div>
 
             <div class="form-group" style="margin-top:1rem;">
                 <label style="font-weight:600;margin-bottom:0.5rem;display:block;">{{t "rsvp_attending_label"}} *</label>
                 <div class="rsvp-toggle">
-                    <input type="radio" name="attending" value="yes" id="att-yes" required>
+                    <input type="radio" name="attending" value="yes" id="att-yes" required {{if and $att $att.Attending}}checked{{end}}>
                     <label for="att-yes">{{t "rsvp_attending_yes"}}</label>
-                    <input type="radio" name="attending" value="no" id="att-no" required>
+                    <input type="radio" name="attending" value="no" id="att-no" required {{if and $att (not $att.Attending)}}checked{{end}}>
                     <label for="att-no">{{t "rsvp_attending_no"}}</label>
                 </div>
             </div>
 
             <div class="form-group" style="margin-top:1rem;">
                 <label for="message">{{t "rsvp_message"}}</label>
-                <textarea id="message" name="message" rows="3" class="form-input" placeholder="{{t "rsvp_message_placeholder"}}"></textarea>
+                <textarea id="message" name="message" rows="3" class="form-input" placeholder="{{t "rsvp_message_placeholder"}}">{{if $att}}{{$att.Message}}{{end}}</textarea>
             </div>
         </div>
     </section>
@@ -95,14 +65,9 @@
 
 <script>
 (function() {
-    var eventId = {{$event.ID}};
     var eventSlug = {{json $event.Slug}};
     var storageKey = 'rsvp_' + eventSlug;
     var userInfoKey = 'user_info';
-    var notFoundMsg = {{json (t "rsvp_lookup_not_found")}};
-
-    var rsvpConfirmed = document.getElementById('rsvp-confirmed');
-    var rsvpLookup = document.getElementById('rsvp-lookup');
     var rsvpForm = document.getElementById('rsvp-form');
 
     {{if $att}}
@@ -116,7 +81,7 @@
         }));
     } catch(e) {}
     {{else}}
-    // Check localStorage for previous RSVP
+    // Pre-fill from localStorage
     try {
         var savedInfo = JSON.parse(localStorage.getItem(userInfoKey));
         if (savedInfo) {
@@ -124,16 +89,6 @@
             if (savedInfo.lastName) document.getElementById('last_name').value = savedInfo.lastName;
             if (savedInfo.email) document.getElementById('email').value = savedInfo.email;
             if (savedInfo.phone) document.getElementById('phone').value = savedInfo.phone;
-        }
-    } catch(e) {}
-
-    // Check if returning user has a stored RSVP
-    try {
-        var storedRsvp = JSON.parse(localStorage.getItem(storageKey));
-        if (storedRsvp && storedRsvp.email) {
-            document.getElementById('lookup-email').value = storedRsvp.email;
-            // Auto-lookup
-            doLookup(storedRsvp.email);
         }
     } catch(e) {}
     {{end}}
@@ -154,69 +109,6 @@
         }, 500);
     }
     rsvpForm.addEventListener('input', saveUserInfo);
-
-    // Lookup button
-    document.getElementById('btn-lookup').addEventListener('click', function() {
-        var email = document.getElementById('lookup-email').value.trim();
-        if (!email) return;
-        doLookup(email);
-    });
-
-    // Enter key in lookup field
-    document.getElementById('lookup-email').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            document.getElementById('btn-lookup').click();
-        }
-    });
-
-    function doLookup(email) {
-        var errEl = document.getElementById('lookup-error');
-        errEl.style.display = 'none';
-        fetch('/rsvp/lookup', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({event_id: eventId, email: email})
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.found) {
-                // Fill form with existing data
-                document.getElementById('first_name').value = data.first_name;
-                document.getElementById('last_name').value = data.last_name;
-                document.getElementById('email').value = data.email;
-                document.getElementById('phone').value = data.phone || '';
-                document.getElementById('message').value = data.message || '';
-                var radios = document.querySelectorAll('input[name=attending]');
-                radios.forEach(function(r) {
-                    r.checked = (data.attending && r.value === 'yes') || (!data.attending && r.value === 'no');
-                });
-                rsvpLookup.style.display = 'none';
-                rsvpForm.style.display = '';
-            } else {
-                errEl.style.display = '';
-            }
-        })
-        .catch(function() {});
-    }
-
-    // Change button (from confirmed view)
-    var changeBtn = document.getElementById('btn-change-rsvp');
-    if (changeBtn) {
-        changeBtn.addEventListener('click', function() {
-            if (rsvpConfirmed) rsvpConfirmed.style.display = 'none';
-            rsvpLookup.style.display = 'none';
-            rsvpForm.style.display = '';
-
-            // Try to prefill from stored data
-            try {
-                var storedRsvp = JSON.parse(localStorage.getItem(storageKey));
-                if (storedRsvp && storedRsvp.email) {
-                    doLookup(storedRsvp.email);
-                }
-            } catch(e) {}
-        });
-    }
 })();
 </script>
 {{end}}
