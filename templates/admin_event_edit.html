@@ -108,6 +108,10 @@
                     <input type="radio" name="event_type" value="attendance">
                     {{t "event_type_attendance"}}
                 </label>
+                <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;">
+                    <input type="radio" name="event_type" value="secret_santa">
+                    {{t "event_type_santa"}}
+                </label>
             </div>
         </div>
         <div class="form-actions">
@@ -174,6 +178,18 @@
         {{else}}
         <p class="empty-state-sm">{{t "attendance_no_responses"}}</p>
         {{end}}
+    </div>
+</section>
+{{else if eq $event.EventType "secret_santa"}}
+{{$santaTotal := index $data "SantaTotal"}}
+{{$santaCompleted := index $data "SantaCompleted"}}
+<section class="panel">
+    <div class="panel-header">
+        <h2 class="panel-title">{{t "santa_admin_title"}}</h2>
+    </div>
+    <div class="panel-body">
+        <p style="font-size:1.1rem;"><strong>{{$santaTotal}}</strong> {{t "santa_admin_participants"}} · <strong>{{$santaCompleted}}</strong> {{t "santa_admin_completed"}}</p>
+        <a href="/admin/event/santa?id={{$event.ID}}&lang={{lang}}" class="btn btn-secondary" style="margin-top:0.5rem;"><i class="fa-solid fa-gift"></i> {{t "santa_admin_view"}}</a>
     </div>
 </section>
 {{else}}

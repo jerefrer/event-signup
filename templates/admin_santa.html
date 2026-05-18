@@ -1,0 +1,116 @@
+{{define "content"}}
+{{$data := .Data}}
+{{$event := index $data "Event"}}
+{{$participants := index $data "Participants"}}
+{{$byID := index $data "ByID"}}
+{{$total := index $data "Total"}}
+{{$completed := index $data "Completed"}}
+{{$pending := index $data "Pending"}}
+{{$drawn := index $data "Drawn"}}
+{{$sentCount := index $data "SentCount"}}
+
+<div class="admin-header">
+    <div class="header-left">
+        <a href="/admin?lang={{lang}}" class="btn-back" title="{{t "back"}}"><i class="fa-solid fa-arrow-left"></i></a>
+        <h1>{{t "santa_admin_title"}} — {{loc $event.TitleFR $event.TitleEN}}</h1>
+    </div>
+</div>
+
+<section class="panel">
+    <div class="panel-body">
+        <p style="font-size:1.1rem;">
+            <strong>{{$total}}</strong> {{t "santa_admin_participants"}} ·
+            <strong>{{$completed}}</strong> {{t "santa_admin_completed"}}
+        </p>
+        {{if and (not $drawn) (gt $pending 0)}}
+        <div class="alert alert-error" style="margin-top:0.5rem;">{{$pending}} {{t "santa_admin_pending_warning"}}</div>
+        {{end}}
+
+        {{if $drawn}}
+        <p style="margin-top:0.75rem;">{{t "santa_admin_drawn"}} {{$event.SantaDrawnAt.String}}</p>
+        <p><strong>{{$sentCount}}</strong> / {{$completed}} {{t "santa_admin_emails_sent"}}</p>
+        <form method="POST" action="/admin/santa/resend?lang={{lang}}" class="inline-form" style="margin-top:0.5rem;">
+            <input type="hidden" name="event_id" value="{{$event.ID}}">
+            <button type="submit" class="btn btn-secondary"><i class="fa-solid fa-paper-plane"></i> {{t "santa_admin_resend_btn"}}</button>
+        </form>
+        {{else}}
+        <form method="POST" action="/admin/santa/draw?lang={{lang}}" class="inline-form" style="margin-top:0.75rem;" onsubmit="return confirm('{{t "santa_admin_draw_confirm"}}')">
+            <input type="hidden" name="event_id" value="{{$event.ID}}">
+            <button type="submit" class="btn btn-primary" {{if lt $completed 2}}disabled{{end}}><i class="fa-solid fa-shuffle"></i> {{t "santa_admin_draw_btn"}}</button>
+        </form>
+        {{if lt $completed 2}}<p class="form-hint" style="margin-top:0.5rem;">{{t "santa_admin_too_few"}}</p>{{end}}
+        {{end}}
+
+        {{if $participants}}
+        <button type="button" class="btn btn-secondary" id="reveal-btn" style="margin-top:1rem;"><i class="fa-solid fa-eye"></i> {{t "santa_admin_reveal_btn"}}</button>
+        {{else}}
+        <p class="empty-state-sm" style="margin-top:1rem;">{{t "santa_admin_no_participants"}}</p>
+        {{end}}
+    </div>
+</section>
+
+{{if $participants}}
+<section class="panel" id="participants-panel" style="display:none;">
+    <div class="panel-body">
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>{{t "registration_last_name"}}</th>
+                        <th>{{t "registration_first_name"}}</th>
+                        <th>{{t "registration_email"}}</th>
+                        <th>{{t "santa_wish_buy"}}</th>
+                        <th>{{t "santa_wish_make"}}</th>
+                        <th>{{t "santa_wish_free"}}</th>
+                        <th>{{t "santa_admin_completed_col"}}</th>
+                        {{if $drawn}}<th>{{t "santa_admin_assigned_to"}}</th><th>{{t "santa_admin_email_sent_col"}}</th>{{else}}<th></th>{{end}}
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range $participants}}
+                    <tr>
+                        <td>{{.LastName}}</td>
+                        <td>{{.FirstName}}</td>
+                        <td>{{.Email}}</td>
+                        <td>{{.WishBuy}}</td>
+                        <td>{{.WishMake}}</td>
+                        <td>{{.WishFree}}</td>
+                        <td>{{if .CompletedAt.Valid}}<span class="badge badge-success">{{t "santa_admin_yes"}}</span>{{else}}<span class="badge badge-danger">{{t "santa_admin_no"}}</span>{{end}}</td>
+                        {{if $drawn}}
+                        <td>{{if .AssignedToID.Valid}}{{$r := index $byID .AssignedToID.Int64}}{{$r.FirstName}} {{$r.LastName}}{{end}}</td>
+                        <td>{{if .EmailSentAt.Valid}}<span class="badge badge-success">{{t "santa_admin_yes"}}</span>{{else}}<span class="badge badge-danger">{{t "santa_admin_no"}}</span>{{end}}</td>
+                        {{else}}
+                        <td>
+                            <form method="POST" action="/admin/santa/participant/delete?lang={{lang}}" class="inline-form" onsubmit="return confirm('{{t "santa_admin_delete_confirm"}}')">
+                                <input type="hidden" name="id" value="{{.ID}}">
+                                <input type="hidden" name="event_id" value="{{$event.ID}}">
+                                <button type="submit" class="btn btn-sm btn-danger"><i class="fa-solid fa-trash"></i></button>
+                            </form>
+                        </td>
+                        {{end}}
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+<script>
+(function() {
+    var btn = document.getElementById('reveal-btn');
+    var panel = document.getElementById('participants-panel');
+    var revealTxt = {{json (t "santa_admin_reveal_btn")}};
+    var hideTxt = {{json (t "santa_admin_hide_btn")}};
+    var shown = false;
+    btn.addEventListener('click', function() {
+        shown = !shown;
+        panel.style.display = shown ? '' : 'none';
+        btn.innerHTML = shown
+            ? '<i class="fa-solid fa-eye-slash"></i> ' + hideTxt
+            : '<i class="fa-solid fa-eye"></i> ' + revealTxt;
+    });
+})();
+</script>
+{{end}}
+{{end}}
+{{template "layout" .}}
