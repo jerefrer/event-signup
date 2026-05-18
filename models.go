@@ -21,7 +21,8 @@ type Event struct {
 	DescriptionEN string
 	EventDate     string
 	EventTime     string
-	EventType     string // "tasks" or "attendance"
+	EventType     string // "tasks", "attendance" or "secret_santa"
+	SantaDrawnAt  sql.NullString
 	CreatedAt     time.Time
 	RegCount      int
 	AttendanceYes int
@@ -106,6 +107,7 @@ func InitDB(dbPath string) (*sql.DB, error) {
 
 	// Migrate registrations: name → first_name + last_name
 	migrateColumn(db, "events", "event_type", "ALTER TABLE events ADD COLUMN event_type TEXT NOT NULL DEFAULT 'tasks'")
+	migrateColumn(db, "events", "santa_drawn_at", "ALTER TABLE events ADD COLUMN santa_drawn_at TEXT")
 
 	migrateColumn(db, "registrations", "first_name", "ALTER TABLE registrations ADD COLUMN first_name TEXT NOT NULL DEFAULT ''")
 	migrateColumn(db, "registrations", "last_name", "ALTER TABLE registrations ADD COLUMN last_name TEXT NOT NULL DEFAULT ''")
@@ -225,11 +227,11 @@ func EnsureUniqueSlug(db *sql.DB, slug string, excludeID int64) (string, error) 
 
 // ---- Event CRUD ----
 
-const eventCols = "id, slug, title_fr, title_en, description_fr, description_en, event_date, event_time, event_type, created_at"
+const eventCols = "id, slug, title_fr, title_en, description_fr, description_en, event_date, event_time, event_type, santa_drawn_at, created_at"
 
 func scanEvent(row interface{ Scan(...any) error }) (*Event, error) {
 	e := &Event{}
-	err := row.Scan(&e.ID, &e.Slug, &e.TitleFR, &e.TitleEN, &e.DescriptionFR, &e.DescriptionEN, &e.EventDate, &e.EventTime, &e.EventType, &e.CreatedAt)
+	err := row.Scan(&e.ID, &e.Slug, &e.TitleFR, &e.TitleEN, &e.DescriptionFR, &e.DescriptionEN, &e.EventDate, &e.EventTime, &e.EventType, &e.SantaDrawnAt, &e.CreatedAt)
 	return e, err
 }
 

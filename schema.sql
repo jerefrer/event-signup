@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS events (
     event_date TEXT NOT NULL,
     event_time TEXT NOT NULL DEFAULT '',
     event_type TEXT NOT NULL DEFAULT 'tasks',
+    santa_drawn_at TEXT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -64,3 +65,24 @@ CREATE TABLE IF NOT EXISTS attendances (
 );
 
 CREATE INDEX IF NOT EXISTS idx_attendances_event ON attendances(event_id);
+
+CREATE TABLE IF NOT EXISTS santa_participants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    first_name TEXT NOT NULL DEFAULT '',
+    last_name TEXT NOT NULL DEFAULT '',
+    email TEXT NOT NULL,
+    lang TEXT NOT NULL DEFAULT 'fr',
+    token TEXT NOT NULL UNIQUE,
+    wish_buy TEXT NOT NULL DEFAULT '',
+    wish_make TEXT NOT NULL DEFAULT '',
+    wish_free TEXT NOT NULL DEFAULT '',
+    completed_at TEXT,
+    assigned_to_id INTEGER REFERENCES santa_participants(id) ON DELETE SET NULL,
+    email_sent_at TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_santa_participants_event ON santa_participants(event_id);
+CREATE INDEX IF NOT EXISTS idx_santa_participants_token ON santa_participants(token);
