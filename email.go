@@ -6,6 +6,11 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/sesv2"
+	sesv2types "github.com/aws/aws-sdk-go-v2/service/sesv2/types"
 )
 
 // EmailSender delivers a single transactional HTML email.
@@ -84,4 +89,38 @@ func renderEmailTemplate(name string, data any) string {
 		return ""
 	}
 	return buf.String()
+}
+
+// SESSender sends email through AWS SES (SESv2 API). Credentials and region are
+// read from the standard AWS environment (AWS_REGION, AWS_ACCESS_KEY_ID, ...).
+type SESSender struct {
+	client *sesv2.Client
+	from   string
+}
+
+func NewSESSender(ctx context.Context, from string) (*SESSender, error) {
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load aws config: %w", err)
+	}
+	return &SESSender{client: sesv2.NewFromConfig(cfg), from: from}, nil
+}
+
+func (s *SESSender) Send(ctx context.Context, to, subject, htmlBody string) error {
+	_, err := s.client.SendEmail(ctx, &sesv2.SendEmailInput{
+		FromEmailAddress: aws.String(s.from),
+		Destination:      &sesv2types.Destination{ToAddresses: []string{to}},
+		Content: &sesv2types.EmailContent{
+			Simple: &sesv2types.Message{
+				Subject: &sesv2types.Content{Data: aws.String(subject), Charset: aws.String("UTF-8")},
+				Body: &sesv2types.Body{
+					Html: &sesv2types.Content{Data: aws.String(htmlBody), Charset: aws.String("UTF-8")},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("ses send email: %w", err)
+	}
+	return nil
 }
