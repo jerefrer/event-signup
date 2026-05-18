@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -18,6 +19,11 @@ type App struct {
 	AdminPassword string
 	BaseURL       string
 	AnthropicKey  string
+
+	Email          EmailSender
+	EmailSendDelay time.Duration // pause between reveal emails (rate limiting)
+	AsyncEmail     bool          // true in production: reveal emails sent in a goroutine
+	sending        sync.Map      // event ID -> bool, guards concurrent reveal sends
 }
 
 type PageData struct {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"embed"
 	"fmt"
@@ -8,6 +9,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 )
 
 //go:embed templates/*.html
@@ -47,6 +50,29 @@ func main() {
 
 	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
 
+	emailFrom := os.Getenv("EVENT_SIGNUP_EMAIL_FROM")
+	var emailSender EmailSender
+	if emailFrom != "" {
+		s, err := NewSESSender(context.Background(), emailFrom)
+		if err != nil {
+			log.Fatalf("Failed to initialize SES: %v", err)
+		}
+		emailSender = s
+		log.Printf("Email: AWS SES (from %s)", emailFrom)
+	} else {
+		emailSender = LogSender{}
+		log.Println("Email: EVENT_SIGNUP_EMAIL_FROM not set — emails will be logged, not sent")
+	}
+
+	emailRate := 2
+	if v := os.Getenv("EVENT_SIGNUP_EMAIL_RATE"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			emailRate = n
+		} else {
+			log.Printf("WARNING: invalid EVENT_SIGNUP_EMAIL_RATE %q, using default %d/s", v, emailRate)
+		}
+	}
+
 	db, err := InitDB(dbPath)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
@@ -54,10 +80,13 @@ func main() {
 	defer db.Close()
 
 	app := &App{
-		DB:            db,
-		AdminPassword: adminPassword,
-		BaseURL:       baseURL,
-		AnthropicKey:  anthropicKey,
+		DB:             db,
+		AdminPassword:  adminPassword,
+		BaseURL:        baseURL,
+		AnthropicKey:   anthropicKey,
+		Email:          emailSender,
+		EmailSendDelay: time.Second / time.Duration(emailRate),
+		AsyncEmail:     true,
 	}
 
 	mux := http.NewServeMux()
