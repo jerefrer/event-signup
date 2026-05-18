@@ -193,7 +193,7 @@ production ; le retry/backoff couvre une erreur de throttling ou réseau transit
     masquée par défaut) : noms, emails, 3 souhaits, et après tirage la personne
     tirée par chacun.
   - Après le tirage : statut « X/Y emails envoyés » + bouton **« Renvoyer »**.
-  - Bouton de suppression par participant.
+  - Bouton de suppression par participant — **uniquement avant le tirage**.
 
 - **`POST /admin/santa/draw`** :
   1. Vérifie : événement de type `secret_santa`, `santa_drawn_at` est `NULL`.
@@ -206,8 +206,12 @@ production ; le retry/backoff couvre une erreur de throttling ou réseau transit
 - **`POST /admin/santa/resend`** — relance `go app.sendRevealEmails(eventID)`
   (ne re-cible que les `email_sent_at IS NULL`). Aucun re-tirage.
 
-- **`POST /admin/santa/participant/delete`** — supprime un participant (comme les
-  suppressions de registrations/attendances existantes).
+- **`POST /admin/santa/participant/delete`** — supprime un participant. **Autorisé
+  uniquement avant le tirage** : refusé une fois `santa_drawn_at` rempli, car
+  supprimer après le tirage casserait le cycle (le donneur de la personne
+  supprimée n'aurait plus de receveur, et inversement) alors que les emails sont
+  déjà partis. Avant le tirage il n'existe aucun cycle ; la suppression sert au
+  nettoyage des inscriptions en double, d'essai ou erronées, et des désistements.
 
 - **`admin_event_edit.html`** — 3ᵉ option de type `secret_santa` ; pour ce type,
   l'éditeur de groupes/tâches est masqué (comme pour `attendance`).
@@ -280,6 +284,8 @@ le développement et les tests fonctionnent sans SES.
   `email_sent_at IS NULL` sont rattrapés par « Renvoyer ».
 - Double déclenchement d'envoi (draw + resend simultanés) → garde de concurrence
   par événement empêche le double envoi.
+- Suppression d'un participant → autorisée uniquement avant le tirage ; refusée
+  une fois `santa_drawn_at` rempli.
 
 ## 15. Stratégie de tests (écrits avant l'implémentation — TDD)
 
@@ -305,6 +311,8 @@ le développement et les tests fonctionnent sans SES.
 - `sendRevealEmails` : un email par participant complété, nommant la bonne
   personne tirée et contenant ses 3 souhaits ; `email_sent_at` posé après succès.
 - `POST /admin/santa/resend` : ne re-cible que les `email_sent_at IS NULL`.
+- `POST /admin/santa/participant/delete` : supprime un participant avant le
+  tirage ; refusé une fois `santa_drawn_at` rempli.
 
 `testutil_test.go` : l'`App` de test reçoit le `fakeEmailSender`.
 
