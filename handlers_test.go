@@ -23,6 +23,10 @@ func newMux(app *App) *http.ServeMux {
 	mux.HandleFunc("/cancel/", app.handlePublicCancel)
 	mux.HandleFunc("/santa/register", app.handleSantaRegister)
 	mux.HandleFunc("/santa/edit", app.handleSantaEdit)
+	mux.HandleFunc("/admin/event/santa", app.requireAdmin(app.handleAdminSanta))
+	mux.HandleFunc("/admin/santa/draw", app.requireAdmin(app.handleAdminSantaDraw))
+	mux.HandleFunc("/admin/santa/resend", app.requireAdmin(app.handleAdminSantaResend))
+	mux.HandleFunc("/admin/santa/participant/delete", app.requireAdmin(app.handleAdminSantaParticipantDelete))
 	return mux
 }
 

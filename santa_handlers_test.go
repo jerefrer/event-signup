@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -254,5 +255,148 @@ func TestResendSkipsAlreadySent(t *testing.T) {
 	app.sendRevealEmails(e.ID) // both already sent
 	if fake.count() != 2 {
 		t.Errorf("resend should skip already-sent participants, got %d total", fake.count())
+	}
+}
+
+func TestAdminSantaPage(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", true)
+	mux := newMux(app)
+	w := getRequest(mux, fmt.Sprintf("/admin/event/santa?id=%d&lang=fr", e.ID), adminCookie(app))
+	if w.Code != 200 {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), T("santa_admin_draw_btn", LangFR)) {
+		t.Error("expected the draw button on the admin santa page")
+	}
+}
+
+func TestAdminSantaDraw(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	p1 := seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", true)
+	p2 := seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", true)
+	mux := newMux(app)
+
+	w := postForm(mux, "/admin/santa/draw?lang=fr", url.Values{
+		"event_id": {fmt.Sprint(e.ID)},
+	}, adminCookie(app))
+	if w.Code != 200 {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	ev, _ := GetEvent(app.DB, e.ID)
+	if !ev.SantaDrawnAt.Valid {
+		t.Error("event should be marked drawn")
+	}
+	g1, _ := GetSantaParticipant(app.DB, p1.ID)
+	if !g1.AssignedToID.Valid {
+		t.Error("p1 should have an assignment")
+	}
+	fake := app.Email.(*fakeEmailSender)
+	if fake.count() != 2 {
+		t.Errorf("expected 2 reveal emails, got %d", fake.count())
+	}
+	g2, _ := GetSantaParticipant(app.DB, p2.ID)
+	if !g2.AssignedToID.Valid {
+		t.Error("p2 should have an assignment")
+	}
+
+	postForm(mux, "/admin/santa/draw?lang=fr", url.Values{
+		"event_id": {fmt.Sprint(e.ID)},
+	}, adminCookie(app))
+	if fake.count() != 2 {
+		t.Errorf("second draw should not send more emails, got %d", fake.count())
+	}
+}
+
+func TestAdminSantaDrawTooFew(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", true) // only 1 completed
+	mux := newMux(app)
+	w := postForm(mux, "/admin/santa/draw?lang=fr", url.Values{
+		"event_id": {fmt.Sprint(e.ID)},
+	}, adminCookie(app))
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
+	}
+	ev, _ := GetEvent(app.DB, e.ID)
+	if ev.SantaDrawnAt.Valid {
+		t.Error("draw must not run with fewer than 2 completed lists")
+	}
+}
+
+func TestAdminSantaResend(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	p1 := seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", true)
+	p2 := seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", true)
+	SaveSantaDraw(app.DB, e.ID, map[int64]int64{p1.ID: p2.ID, p2.ID: p1.ID})
+	MarkRevealEmailSent(app.DB, p1.ID) // p1 already emailed
+	mux := newMux(app)
+	w := postForm(mux, "/admin/santa/resend?lang=fr", url.Values{
+		"event_id": {fmt.Sprint(e.ID)},
+	}, adminCookie(app))
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
+	}
+	fake := app.Email.(*fakeEmailSender)
+	if fake.count() != 1 {
+		t.Errorf("resend should email only the 1 unsent participant, got %d", fake.count())
+	}
+}
+
+func TestAdminSantaParticipantDelete(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	p := seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", false)
+	mux := newMux(app)
+	w := postForm(mux, "/admin/santa/participant/delete?lang=fr", url.Values{
+		"id":       {fmt.Sprint(p.ID)},
+		"event_id": {fmt.Sprint(e.ID)},
+	}, adminCookie(app))
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusSeeOther)
+	}
+	if _, err := GetSantaParticipant(app.DB, p.ID); err == nil {
+		t.Error("participant should be deleted before the draw")
+	}
+}
+
+func TestAdminSantaParticipantDeleteAfterDrawRefused(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	p1 := seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", true)
+	p2 := seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", true)
+	SaveSantaDraw(app.DB, e.ID, map[int64]int64{p1.ID: p2.ID, p2.ID: p1.ID})
+	mux := newMux(app)
+	postForm(mux, "/admin/santa/participant/delete?lang=fr", url.Values{
+		"id":       {fmt.Sprint(p1.ID)},
+		"event_id": {fmt.Sprint(e.ID)},
+	}, adminCookie(app))
+	if _, err := GetSantaParticipant(app.DB, p1.ID); err != nil {
+		t.Error("participant must NOT be deleted after the draw")
+	}
+}
+
+func TestAdminSantaResendBeforeDraw(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", true)
+	seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", true)
+	mux := newMux(app)
+	w := postForm(mux, "/admin/santa/resend?lang=fr", url.Values{
+		"event_id": {fmt.Sprint(e.ID)},
+	}, adminCookie(app))
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
+	}
+	fake := app.Email.(*fakeEmailSender)
+	if fake.count() != 0 {
+		t.Errorf("resend before the draw must send nothing, got %d", fake.count())
+	}
+	if strings.Contains(w.Body.String(), T("santa_admin_resend_done", LangFR)) {
+		t.Error("resend before the draw must not show the 'resend in progress' message")
 	}
 }

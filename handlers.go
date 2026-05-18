@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -197,6 +198,9 @@ func (app *App) handleAdminEvents(w http.ResponseWriter, r *http.Request) {
 			events[i].RegCount = totalCount
 			events[i].AttendanceYes = yesCount
 			events[i].AttendanceNo = totalCount - yesCount
+		} else if events[i].EventType == "secret_santa" {
+			total, _ := CountSantaParticipants(app.DB, events[i].ID)
+			events[i].RegCount = total
 		} else {
 			events[i].RegCount = CountRegistrations(app.DB, events[i].ID)
 		}
@@ -213,7 +217,7 @@ func (app *App) handleAdminEvents(w http.ResponseWriter, r *http.Request) {
 func (app *App) handleAdminEventNew(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		eventType := r.FormValue("event_type")
-		if eventType != "attendance" {
+		if eventType != "attendance" && eventType != "secret_santa" {
 			eventType = "tasks"
 		}
 		e := &Event{
@@ -292,6 +296,10 @@ func (app *App) eventEditData(event *Event) map[string]any {
 		yesCount, totalCount := CountAttendances(app.DB, event.ID)
 		data["AttendanceYes"] = yesCount
 		data["AttendanceTotal"] = totalCount
+	} else if event.EventType == "secret_santa" {
+		total, completed := CountSantaParticipants(app.DB, event.ID)
+		data["SantaTotal"] = total
+		data["SantaCompleted"] = completed
 	} else {
 		tree, _ := BuildEventTree(app.DB, event.ID)
 		flatGroups, _ := BuildFlatGroupList(app.DB, event.ID)
@@ -1131,4 +1139,131 @@ func (app *App) handleSantaEdit(w http.ResponseWriter, r *http.Request) {
 	}
 	pd := app.newPageData(r, map[string]any{"Event": event, "Participant": p})
 	app.render(w, r, "santa_edit.html", pd)
+}
+
+// ---- Secret Santa: admin ----
+
+// santaAdminData builds the data map for the admin santa page.
+func (app *App) santaAdminData(event *Event) map[string]any {
+	participants, _ := ListSantaParticipants(app.DB, event.ID)
+	total, completed := CountSantaParticipants(app.DB, event.ID)
+	byID := make(map[int64]SantaParticipant, len(participants))
+	sentCount := 0
+	for _, p := range participants {
+		byID[p.ID] = p
+		if p.EmailSentAt.Valid {
+			sentCount++
+		}
+	}
+	return map[string]any{
+		"Event":        event,
+		"Participants": participants,
+		"ByID":         byID,
+		"Total":        total,
+		"Completed":    completed,
+		"Pending":      total - completed,
+		"Drawn":        event.SantaDrawnAt.Valid,
+		"SentCount":    sentCount,
+	}
+}
+
+func (app *App) handleAdminSanta(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
+	event, err := GetEvent(app.DB, id)
+	if err != nil || event.EventType != "secret_santa" {
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+		return
+	}
+	pd := app.newPageData(r, app.santaAdminData(event))
+	app.render(w, r, "admin_santa.html", pd)
+}
+
+func (app *App) handleAdminSantaDraw(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+		return
+	}
+	lang := LangFromRequest(r)
+	eventID, _ := strconv.ParseInt(r.FormValue("event_id"), 10, 64)
+	event, err := GetEvent(app.DB, eventID)
+	if err != nil || event.EventType != "secret_santa" {
+		http.NotFound(w, r)
+		return
+	}
+	if event.SantaDrawnAt.Valid {
+		pd := app.newPageData(r, app.santaAdminData(event))
+		app.render(w, r, "admin_santa.html", pd)
+		return
+	}
+	participants, _ := ListSantaParticipants(app.DB, event.ID)
+	var ids []int64
+	for _, p := range participants {
+		if p.CompletedAt.Valid {
+			ids = append(ids, p.ID)
+		}
+	}
+	if len(ids) < 2 {
+		pd := app.newPageData(r, app.santaAdminData(event))
+		pd.Error = T("santa_admin_too_few", lang)
+		app.render(w, r, "admin_santa.html", pd)
+		return
+	}
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	assignments, err := DrawSecretSanta(ids, rng)
+	if err != nil {
+		pd := app.newPageData(r, app.santaAdminData(event))
+		pd.Error = T("santa_admin_too_few", lang)
+		app.render(w, r, "admin_santa.html", pd)
+		return
+	}
+	if err := SaveSantaDraw(app.DB, event.ID, assignments); err != nil {
+		log.Printf("santa draw save error: %v", err)
+		pd := app.newPageData(r, app.santaAdminData(event))
+		pd.Error = T("error_server", lang)
+		app.render(w, r, "admin_santa.html", pd)
+		return
+	}
+	app.dispatchRevealEmails(event.ID)
+	event, _ = GetEvent(app.DB, event.ID)
+	pd := app.newPageData(r, app.santaAdminData(event))
+	pd.Success = T("santa_admin_draw_done", lang)
+	app.render(w, r, "admin_santa.html", pd)
+}
+
+func (app *App) handleAdminSantaResend(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+		return
+	}
+	lang := LangFromRequest(r)
+	eventID, _ := strconv.ParseInt(r.FormValue("event_id"), 10, 64)
+	event, err := GetEvent(app.DB, eventID)
+	if err != nil || event.EventType != "secret_santa" {
+		http.NotFound(w, r)
+		return
+	}
+	if event.SantaDrawnAt.Valid {
+		app.dispatchRevealEmails(event.ID)
+		event, _ = GetEvent(app.DB, event.ID)
+	}
+	pd := app.newPageData(r, app.santaAdminData(event))
+	if event.SantaDrawnAt.Valid {
+		pd.Success = T("santa_admin_resend_done", lang)
+	}
+	app.render(w, r, "admin_santa.html", pd)
+}
+
+func (app *App) handleAdminSantaParticipantDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+		return
+	}
+	lang := LangFromRequest(r)
+	eventID, _ := strconv.ParseInt(r.FormValue("event_id"), 10, 64)
+	id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	event, err := GetEvent(app.DB, eventID)
+	if err == nil && event.EventType == "secret_santa" && !event.SantaDrawnAt.Valid {
+		DeleteSantaParticipant(app.DB, id)
+	}
+	http.Redirect(w, r, fmt.Sprintf("/admin/event/santa?id=%d&lang=%s", eventID, lang), http.StatusSeeOther)
 }
