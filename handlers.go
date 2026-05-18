@@ -1066,6 +1066,13 @@ func (app *App) handleSantaRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	editURL := fmt.Sprintf("%s/santa/edit?token=%s&lang=%s", app.BaseURL, p.Token, lang)
 	subject, htmlBody := renderSantaLinkEmail(lang, *p, *event, editURL)
+	if htmlBody == "" {
+		log.Printf("santa link email render returned empty body for event %d", event.ID)
+		pd := app.newPageData(r, map[string]any{"Event": event})
+		pd.Error = T("santa_email_error", lang)
+		app.render(w, r, "public_santa.html", pd)
+		return
+	}
 	if err := app.Email.Send(r.Context(), p.Email, subject, htmlBody); err != nil {
 		log.Printf("santa link email error: %v", err)
 		pd := app.newPageData(r, map[string]any{"Event": event})

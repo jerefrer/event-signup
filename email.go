@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -123,4 +124,83 @@ func (s *SESSender) Send(ctx context.Context, to, subject, htmlBody string) erro
 		return fmt.Errorf("ses send email: %w", err)
 	}
 	return nil
+}
+
+// dispatchRevealEmails starts sending reveal emails. In production (AsyncEmail)
+// it runs in a goroutine so the HTTP request returns immediately; in tests it
+// runs synchronously.
+func (app *App) dispatchRevealEmails(eventID int64) {
+	if app.AsyncEmail {
+		go app.sendRevealEmails(eventID)
+	} else {
+		app.sendRevealEmails(eventID)
+	}
+}
+
+// sendRevealEmails sends the reveal email to every completed, assigned
+// participant of the event who has not been emailed yet. It is rate-limited and
+// guarded so only one send runs per event at a time.
+func (app *App) sendRevealEmails(eventID int64) {
+	if _, busy := app.sending.LoadOrStore(eventID, true); busy {
+		return
+	}
+	defer app.sending.Delete(eventID)
+
+	event, err := GetEvent(app.DB, eventID)
+	if err != nil {
+		log.Printf("sendRevealEmails: event %d: %v", eventID, err)
+		return
+	}
+	participants, err := ListSantaParticipants(app.DB, eventID)
+	if err != nil {
+		log.Printf("sendRevealEmails: list participants: %v", err)
+		return
+	}
+	byID := make(map[int64]SantaParticipant, len(participants))
+	for _, p := range participants {
+		byID[p.ID] = p
+	}
+	first := true
+	for _, p := range participants {
+		if !p.AssignedToID.Valid || p.EmailSentAt.Valid {
+			continue
+		}
+		receiver, ok := byID[p.AssignedToID.Int64]
+		if !ok {
+			continue
+		}
+		if !first {
+			time.Sleep(app.EmailSendDelay)
+		}
+		first = false
+		subject, htmlBody := renderSantaRevealEmail(p.Lang, p, receiver, *event, app.BaseURL)
+		if htmlBody == "" {
+			log.Printf("sendRevealEmails: empty rendered email body for participant %d, skipping", p.ID)
+			continue
+		}
+		if err := app.sendWithRetry(p.Email, subject, htmlBody); err != nil {
+			log.Printf("sendRevealEmails: send to %s failed: %v", p.Email, err)
+			continue
+		}
+		if err := MarkRevealEmailSent(app.DB, p.ID); err != nil {
+			log.Printf("sendRevealEmails: mark sent %d: %v", p.ID, err)
+		}
+	}
+}
+
+// sendWithRetry retries a transient send failure up to 3 attempts.
+func (app *App) sendWithRetry(to, subject, htmlBody string) error {
+	var err error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			// EmailSendDelay doubles as the retry backoff — adequate at this
+			// app's scale; a dedicated retry-delay field would be over-engineering.
+			time.Sleep(app.EmailSendDelay)
+		}
+		err = app.Email.Send(context.Background(), to, subject, htmlBody)
+		if err == nil {
+			return nil
+		}
+	}
+	return err
 }

@@ -158,3 +158,101 @@ func TestSantaRegisterEmailFailure(t *testing.T) {
 		t.Error("participant row should exist even when the email fails")
 	}
 }
+
+func TestSendRevealEmails(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	p1 := seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", true)
+	p2 := seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", true)
+	p3 := seedSantaParticipant(t, app.DB, e.ID, "Carol", "carol@test.com", true)
+	SaveSantaDraw(app.DB, e.ID, map[int64]int64{p1.ID: p2.ID, p2.ID: p3.ID, p3.ID: p1.ID})
+
+	app.sendRevealEmails(e.ID)
+
+	fake := app.Email.(*fakeEmailSender)
+	if fake.count() != 3 {
+		t.Fatalf("expected 3 reveal emails, got %d", fake.count())
+	}
+	var aliceMail *sentEmail
+	for i := range fake.sent {
+		if fake.sent[i].To == "alice@test.com" {
+			aliceMail = &fake.sent[i]
+		}
+	}
+	if aliceMail == nil {
+		t.Fatal("Alice received no email")
+	}
+	if !strings.Contains(aliceMail.HTML, "Bob") || !strings.Contains(aliceMail.HTML, p2.WishBuy) {
+		t.Error("Alice's email should reveal Bob and Bob's wishes")
+	}
+	for _, id := range []int64{p1.ID, p2.ID, p3.ID} {
+		got, _ := GetSantaParticipant(app.DB, id)
+		if !got.EmailSentAt.Valid {
+			t.Errorf("participant %d not marked email_sent", id)
+		}
+	}
+}
+
+func TestSendRevealEmailsRetry(t *testing.T) {
+	app := testApp(t)
+	fake := app.Email.(*fakeEmailSender)
+	fake.failUntil = 2 // first 2 Send calls fail, then succeed
+	e := seedSantaEvent(t, app.DB)
+	p1 := seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", true)
+	p2 := seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", true)
+	SaveSantaDraw(app.DB, e.ID, map[int64]int64{p1.ID: p2.ID, p2.ID: p1.ID})
+
+	app.sendRevealEmails(e.ID)
+	if fake.count() != 2 {
+		t.Fatalf("expected both emails delivered after retry, got %d", fake.count())
+	}
+	for _, id := range []int64{p1.ID, p2.ID} {
+		got, _ := GetSantaParticipant(app.DB, id)
+		if !got.EmailSentAt.Valid {
+			t.Errorf("participant %d not marked sent after retry", id)
+		}
+	}
+}
+
+func TestSendRevealEmailsPermanentFailure(t *testing.T) {
+	app := testApp(t)
+	fake := app.Email.(*fakeEmailSender)
+	fake.failUntil = 3 // exhausts all 3 retry attempts for the first participant
+	e := seedSantaEvent(t, app.DB)
+	p1 := seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", true)
+	p2 := seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", true)
+	SaveSantaDraw(app.DB, e.ID, map[int64]int64{p1.ID: p2.ID, p2.ID: p1.ID})
+
+	app.sendRevealEmails(e.ID)
+
+	// Alice's 3 attempts all fail -> not marked sent; Bob (processed next) still succeeds.
+	got1, _ := GetSantaParticipant(app.DB, p1.ID)
+	if got1.EmailSentAt.Valid {
+		t.Error("p1 should not be marked sent after exhausting all retries")
+	}
+	got2, _ := GetSantaParticipant(app.DB, p2.ID)
+	if !got2.EmailSentAt.Valid {
+		t.Error("p2 should still be emailed even though p1 permanently failed")
+	}
+	if fake.count() != 1 {
+		t.Errorf("expected exactly 1 successful email (Bob), got %d", fake.count())
+	}
+}
+
+func TestResendSkipsAlreadySent(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	p1 := seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", true)
+	p2 := seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", true)
+	SaveSantaDraw(app.DB, e.ID, map[int64]int64{p1.ID: p2.ID, p2.ID: p1.ID})
+
+	app.sendRevealEmails(e.ID)
+	fake := app.Email.(*fakeEmailSender)
+	if fake.count() != 2 {
+		t.Fatalf("first pass: got %d emails, want 2", fake.count())
+	}
+	app.sendRevealEmails(e.ID) // both already sent
+	if fake.count() != 2 {
+		t.Errorf("resend should skip already-sent participants, got %d total", fake.count())
+	}
+}
