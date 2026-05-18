@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>{{.Title}}</title></head>
+<body style="font-family:sans-serif;color:#333;max-width:480px;margin:0 auto;padding:1rem;">
+    <h2>{{.Title}}</h2>
+    <p>{{.Greeting}}</p>
+    <p>{{.Intro}}</p>
+    <p style="font-size:1.3rem;font-weight:bold;text-align:center;margin:1rem 0;">{{.ReceiverName}}</p>
+    <p>{{.WishesIntro}}</p>
+    <ul>
+        <li><strong>{{.WishBuyLabel}}:</strong> {{.WishBuy}}</li>
+        <li><strong>{{.WishMakeLabel}}:</strong> {{.WishMake}}</li>
+        <li><strong>{{.WishFreeLabel}}:</strong> {{.WishFree}}</li>
+    </ul>
+    <p style="margin-top:1.5rem;"><a href="{{.EventURL}}">{{.EventLinkText}}</a></p>
+</body>
+</html>

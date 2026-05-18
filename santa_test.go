@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"math/rand"
+	"strings"
 	"testing"
 )
 
@@ -236,6 +237,34 @@ func TestSaveSantaDraw(t *testing.T) {
 	ev, _ := GetEvent(db, e.ID)
 	if !ev.SantaDrawnAt.Valid {
 		t.Error("event santa_drawn_at should be set after the draw")
+	}
+}
+
+func TestRenderSantaEmails(t *testing.T) {
+	e := Event{TitleFR: "Noël", TitleEN: "Christmas", Slug: "noel"}
+	giver := SantaParticipant{FirstName: "Alice", LastName: "Dupont", Email: "alice@t.com"}
+	receiver := SantaParticipant{FirstName: "Bob", LastName: "Martin",
+		WishBuy: "un stylo", WishMake: "un poeme", WishFree: "une surprise"}
+
+	subj, html := renderSantaLinkEmail("fr", giver, e, "http://x/santa/edit?token=abc")
+	if subj == "" {
+		t.Error("link email subject is empty")
+	}
+	if !strings.Contains(html, "http://x/santa/edit?token=abc") {
+		t.Error("link email is missing the edit URL")
+	}
+	if !strings.Contains(html, "Alice") {
+		t.Error("link email is missing the greeting name")
+	}
+
+	subj2, html2 := renderSantaRevealEmail("fr", giver, receiver, e, "http://x")
+	if subj2 == "" {
+		t.Error("reveal email subject is empty")
+	}
+	for _, want := range []string{"Bob", "Martin", "un stylo", "un poeme", "une surprise", "http://x/e/noel"} {
+		if !strings.Contains(html2, want) {
+			t.Errorf("reveal email is missing %q", want)
+		}
 	}
 }
 
