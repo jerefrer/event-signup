@@ -708,6 +708,10 @@ func (app *App) handleAdminRegistrations(w http.ResponseWriter, r *http.Request)
 		http.Redirect(w, r, fmt.Sprintf("/admin/event/attendances?id=%d&lang=%s", id, LangFromRequest(r)), http.StatusSeeOther)
 		return
 	}
+	if event.EventType == "secret_santa" {
+		http.Redirect(w, r, fmt.Sprintf("/admin/event/santa?id=%d&lang=%s", id, LangFromRequest(r)), http.StatusSeeOther)
+		return
+	}
 	allRegs, _ := ListAllRegistrations(app.DB, event.ID)
 	totalRegs := CountRegistrations(app.DB, event.ID)
 
