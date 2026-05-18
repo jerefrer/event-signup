@@ -1,0 +1,66 @@
+{{define "content"}}
+{{$data := .Data}}
+{{$event := index $data "Event"}}
+{{$closed := index $data "Closed"}}
+{{$linkSent := index $data "LinkSent"}}
+
+<div class="event-header">
+    <h1>{{loc $event.TitleFR $event.TitleEN}}</h1>
+    <div class="event-meta">
+        <span class="event-meta-item">&#x1F4C5; {{formatDate $event.EventDate}}</span>
+        {{if $event.EventTime}}<span class="event-meta-item">&#x1F552; {{formatTime $event.EventTime}}</span>{{end}}
+    </div>
+    {{$desc := loc $event.DescriptionFR $event.DescriptionEN}}
+    {{if $desc}}<div class="event-description">{{nl2br $desc}}</div>{{end}}
+</div>
+
+{{if $closed}}
+<div class="card"><div class="card-body"><p>{{t "santa_closed"}}</p></div></div>
+{{else if $linkSent}}
+<div class="registered-card card">
+    <div class="confirmation-icon" aria-hidden="true">&#x2709;</div>
+    <h2>{{t "santa_link_sent"}}</h2>
+</div>
+{{else}}
+<form id="santa-register-form" method="POST" action="/santa/register?lang={{lang}}" class="signup-unified">
+    <input type="hidden" name="event_id" value="{{$event.ID}}">
+    <section class="panel">
+        <h2 class="panel-title">{{t "santa_register_title"}}</h2>
+        <div class="panel-body">
+            <p class="form-hint" style="margin-bottom:1rem;">{{t "santa_register_intro"}}</p>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="first_name">{{t "registration_first_name"}} *</label>
+                    <input type="text" id="first_name" name="first_name" required class="form-input" autocomplete="given-name">
+                </div>
+                <div class="form-group">
+                    <label for="last_name">{{t "registration_last_name"}} *</label>
+                    <input type="text" id="last_name" name="last_name" required class="form-input" autocomplete="family-name">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="email">{{t "registration_email"}} *</label>
+                <input type="email" id="email" name="email" required class="form-input" autocomplete="email">
+            </div>
+        </div>
+    </section>
+    <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-envelope"></i> {{t "santa_register_btn"}}</button>
+</form>
+<div id="santa-continue" style="display:none;text-align:center;margin-top:1rem;">
+    <a id="santa-continue-link" class="btn btn-secondary" href="#"><i class="fa-solid fa-pencil"></i> {{t "santa_continue_btn"}}</a>
+</div>
+<script>
+(function() {
+    try {
+        var tok = localStorage.getItem('santa_' + {{json $event.Slug}});
+        if (tok) {
+            var link = document.getElementById('santa-continue-link');
+            link.href = '/santa/edit?token=' + encodeURIComponent(tok) + '&lang={{lang}}';
+            document.getElementById('santa-continue').style.display = '';
+        }
+    } catch(e) {}
+})();
+</script>
+{{end}}
+{{end}}
+{{template "layout" .}}

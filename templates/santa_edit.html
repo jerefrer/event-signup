@@ -1,0 +1,53 @@
+{{define "content"}}
+{{$data := .Data}}
+{{$event := index $data "Event"}}
+{{$p := index $data "Participant"}}
+{{$closed := index $data "Closed"}}
+
+{{if not $event}}
+<p><a href="/">{{t "back"}}</a></p>
+{{else}}
+<div class="event-header">
+    <h1>{{loc $event.TitleFR $event.TitleEN}}</h1>
+    <div class="event-meta">
+        <span class="event-meta-item">&#x1F4C5; {{formatDate $event.EventDate}}</span>
+        {{if $event.EventTime}}<span class="event-meta-item">&#x1F552; {{formatTime $event.EventTime}}</span>{{end}}
+    </div>
+</div>
+{{if $closed}}
+<div class="card"><div class="card-body"><p>{{t "santa_closed"}}</p></div></div>
+{{else}}
+<form method="POST" action="/santa/edit?lang={{lang}}" class="signup-unified">
+    <input type="hidden" name="token" value="{{$p.Token}}">
+    <section class="panel">
+        <h2 class="panel-title">{{t "santa_wishes_title"}}</h2>
+        <div class="panel-body">
+            <p style="margin-bottom:1rem;"><strong>{{$p.FirstName}} {{$p.LastName}}</strong></p>
+            <div class="form-group">
+                <label for="wish_buy">{{t "santa_wish_buy"}} *</label>
+                <p class="form-hint">{{t "santa_wish_buy_hint"}}</p>
+                <input type="text" id="wish_buy" name="wish_buy" required class="form-input" value="{{$p.WishBuy}}">
+            </div>
+            <div class="form-group" style="margin-top:1rem;">
+                <label for="wish_make">{{t "santa_wish_make"}} *</label>
+                <p class="form-hint">{{t "santa_wish_make_hint"}}</p>
+                <input type="text" id="wish_make" name="wish_make" required class="form-input" value="{{$p.WishMake}}">
+            </div>
+            <div class="form-group" style="margin-top:1rem;">
+                <label for="wish_free">{{t "santa_wish_free"}} *</label>
+                <p class="form-hint">{{t "santa_wish_free_hint"}}</p>
+                <input type="text" id="wish_free" name="wish_free" required class="form-input" value="{{$p.WishFree}}">
+            </div>
+        </div>
+    </section>
+    <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-check"></i> {{t "santa_wishes_save"}}</button>
+</form>
+<script>
+(function() {
+    try { localStorage.setItem('santa_' + {{json $event.Slug}}, {{json $p.Token}}); } catch(e) {}
+})();
+</script>
+{{end}}
+{{end}}
+{{end}}
+{{template "layout" .}}
