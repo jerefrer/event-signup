@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
+	"sync"
 	"testing"
 )
 
@@ -56,6 +59,38 @@ func seedTask(t *testing.T, db *sql.DB, eventID int64, titleFR string, maxSlots 
 }
 
 func int64Ptr(v int64) *int64 { return &v }
+
+// sentEmail records one email handed to fakeEmailSender.
+type sentEmail struct {
+	To      string
+	Subject string
+	HTML    string
+}
+
+// fakeEmailSender records emails for assertions. failUntil makes the next N
+// Send calls fail (used to exercise retry logic).
+type fakeEmailSender struct {
+	mu        sync.Mutex
+	sent      []sentEmail
+	failUntil int
+}
+
+func (f *fakeEmailSender) Send(ctx context.Context, to, subject, htmlBody string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.failUntil > 0 {
+		f.failUntil--
+		return fmt.Errorf("fake email failure")
+	}
+	f.sent = append(f.sent, sentEmail{To: to, Subject: subject, HTML: htmlBody})
+	return nil
+}
+
+func (f *fakeEmailSender) count() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.sent)
+}
 
 // oldSchemaSQL is the original schema before first_name/last_name migration.
 // It has `name TEXT NOT NULL` instead of first_name/last_name.
