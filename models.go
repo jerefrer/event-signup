@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	mrand "math/rand"
 	"sort"
 	"strings"
 	"time"
@@ -942,4 +943,24 @@ func DeleteSantaParticipant(db *sql.DB, id int64) error {
 func MarkRevealEmailSent(db *sql.DB, id int64) error {
 	_, err := db.Exec("UPDATE santa_participants SET email_sent_at=CURRENT_TIMESTAMP WHERE id=?", id)
 	return err
+}
+
+// DrawSecretSanta returns a derangement (giver ID -> receiver ID) using
+// Sattolo's algorithm, which produces a single random cycle: no participant is
+// ever assigned to themselves. Requires at least 2 participants.
+func DrawSecretSanta(ids []int64, rng *mrand.Rand) (map[int64]int64, error) {
+	if len(ids) < 2 {
+		return nil, fmt.Errorf("secret santa draw needs at least 2 participants, got %d", len(ids))
+	}
+	perm := make([]int64, len(ids))
+	copy(perm, ids)
+	for i := len(perm) - 1; i > 0; i-- {
+		j := rng.Intn(i) // 0 <= j < i
+		perm[i], perm[j] = perm[j], perm[i]
+	}
+	assignments := make(map[int64]int64, len(perm))
+	for i := range perm {
+		assignments[perm[i]] = perm[(i+1)%len(perm)]
+	}
+	return assignments, nil
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"math/rand"
 	"testing"
 )
 
@@ -149,6 +150,69 @@ func TestSantaSchema(t *testing.T) {
 	var drawn sql.NullString
 	if err := db.QueryRow("SELECT santa_drawn_at FROM events LIMIT 1").Scan(&drawn); err != nil && err != sql.ErrNoRows {
 		t.Fatalf("select santa_drawn_at: %v", err)
+	}
+}
+
+func TestDrawSecretSanta(t *testing.T) {
+	ids := []int64{10, 20, 30, 40, 50}
+	assignments, err := DrawSecretSanta(ids, rand.New(rand.NewSource(42)))
+	if err != nil {
+		t.Fatalf("draw: %v", err)
+	}
+	if len(assignments) != len(ids) {
+		t.Fatalf("got %d assignments, want %d", len(assignments), len(ids))
+	}
+	for giver, receiver := range assignments {
+		if giver == receiver {
+			t.Errorf("participant %d assigned to self", giver)
+		}
+	}
+	seen := map[int64]bool{}
+	for _, receiver := range assignments {
+		if seen[receiver] {
+			t.Errorf("receiver %d assigned twice", receiver)
+		}
+		seen[receiver] = true
+	}
+	for _, id := range ids {
+		if !seen[id] {
+			t.Errorf("id %d is never a receiver", id)
+		}
+		if _, ok := assignments[id]; !ok {
+			t.Errorf("id %d is never a giver", id)
+		}
+	}
+
+	// single cycle: following the chain from any id must visit every id and return to start
+	cur := ids[0]
+	for range ids {
+		cur = assignments[cur]
+	}
+	if cur != ids[0] {
+		t.Error("assignments do not form a single cycle")
+	}
+
+	// deterministic with the same seed
+	again, _ := DrawSecretSanta(ids, rand.New(rand.NewSource(42))) // same inputs as above, error already checked
+	for g, r := range assignments {
+		if again[g] != r {
+			t.Errorf("not deterministic: giver %d -> %d vs %d", g, r, again[g])
+		}
+	}
+	// N=2 must swap
+	two, err := DrawSecretSanta([]int64{1, 2}, rand.New(rand.NewSource(1)))
+	if err != nil {
+		t.Fatalf("N=2: %v", err)
+	}
+	if two[1] != 2 || two[2] != 1 {
+		t.Errorf("N=2 should swap, got %v", two)
+	}
+	// errors for fewer than 2
+	if _, err := DrawSecretSanta([]int64{1}, rand.New(rand.NewSource(1))); err == nil {
+		t.Error("expected error for N=1")
+	}
+	if _, err := DrawSecretSanta(nil, rand.New(rand.NewSource(1))); err == nil {
+		t.Error("expected error for N=0")
 	}
 }
 
