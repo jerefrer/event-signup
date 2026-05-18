@@ -21,6 +21,8 @@ func newMux(app *App) *http.ServeMux {
 	mux.HandleFunc("/e/", app.handlePublicEvent)
 	mux.HandleFunc("/signup", app.handlePublicSignup)
 	mux.HandleFunc("/cancel/", app.handlePublicCancel)
+	mux.HandleFunc("/santa/register", app.handleSantaRegister)
+	mux.HandleFunc("/santa/edit", app.handleSantaEdit)
 	return mux
 }
 

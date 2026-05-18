@@ -756,6 +756,11 @@ func (app *App) handlePublicEvent(w http.ResponseWriter, r *http.Request) {
 		app.render(w, r, "public_attendance.html", pd)
 		return
 	}
+	if event.EventType == "secret_santa" {
+		pd := app.newPageData(r, map[string]any{"Event": event})
+		app.render(w, r, "public_santa.html", pd)
+		return
+	}
 	tree, _ := BuildEventTree(app.DB, event.ID)
 	pd := app.newPageData(r, map[string]any{"Event": event, "Tree": tree})
 	app.render(w, r, "public_event.html", pd)
@@ -1021,4 +1026,102 @@ func (app *App) handleAdminExportAttendanceCSV(w http.ResponseWriter, r *http.Re
 		cw.Write([]string{a.LastName, a.FirstName, a.Email, a.Phone, attending, a.Message, a.CreatedAt.Format("2006-01-02 15:04")})
 	}
 	cw.Flush()
+}
+
+// ---- Secret Santa: public ----
+
+func (app *App) handleSantaRegister(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	lang := LangFromRequest(r)
+	eventID, _ := strconv.ParseInt(r.FormValue("event_id"), 10, 64)
+	event, err := GetEvent(app.DB, eventID)
+	if err != nil || event.EventType != "secret_santa" {
+		http.NotFound(w, r)
+		return
+	}
+	if event.SantaDrawnAt.Valid {
+		pd := app.newPageData(r, map[string]any{"Event": event, "Closed": true})
+		app.render(w, r, "public_santa.html", pd)
+		return
+	}
+	firstName := strings.TrimSpace(r.FormValue("first_name"))
+	lastName := strings.TrimSpace(r.FormValue("last_name"))
+	email := strings.TrimSpace(r.FormValue("email"))
+	if firstName == "" || lastName == "" || email == "" {
+		pd := app.newPageData(r, map[string]any{"Event": event})
+		pd.Error = T("error_invalid_form", lang)
+		app.render(w, r, "public_santa.html", pd)
+		return
+	}
+	p, err := UpsertSantaParticipant(app.DB, event.ID, firstName, lastName, email, lang)
+	if err != nil {
+		log.Printf("santa register error: %v", err)
+		pd := app.newPageData(r, map[string]any{"Event": event})
+		pd.Error = T("error_server", lang)
+		app.render(w, r, "public_santa.html", pd)
+		return
+	}
+	editURL := fmt.Sprintf("%s/santa/edit?token=%s&lang=%s", app.BaseURL, p.Token, lang)
+	subject, htmlBody := renderSantaLinkEmail(lang, *p, *event, editURL)
+	if err := app.Email.Send(r.Context(), p.Email, subject, htmlBody); err != nil {
+		log.Printf("santa link email error: %v", err)
+		pd := app.newPageData(r, map[string]any{"Event": event})
+		pd.Error = T("santa_email_error", lang)
+		app.render(w, r, "public_santa.html", pd)
+		return
+	}
+	pd := app.newPageData(r, map[string]any{"Event": event, "LinkSent": true})
+	app.render(w, r, "public_santa.html", pd)
+}
+
+func (app *App) handleSantaEdit(w http.ResponseWriter, r *http.Request) {
+	lang := LangFromRequest(r)
+	token := strings.TrimSpace(r.FormValue("token"))
+	p, err := GetSantaParticipantByToken(app.DB, token)
+	if err != nil {
+		pd := app.newPageData(r, map[string]any{})
+		pd.Error = T("santa_invalid_link", lang)
+		app.render(w, r, "santa_edit.html", pd)
+		return
+	}
+	event, err := GetEvent(app.DB, p.EventID)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if event.SantaDrawnAt.Valid {
+		pd := app.newPageData(r, map[string]any{"Event": event, "Closed": true})
+		app.render(w, r, "santa_edit.html", pd)
+		return
+	}
+	if r.Method == http.MethodPost {
+		wishBuy := strings.TrimSpace(r.FormValue("wish_buy"))
+		wishMake := strings.TrimSpace(r.FormValue("wish_make"))
+		wishFree := strings.TrimSpace(r.FormValue("wish_free"))
+		if wishBuy == "" || wishMake == "" || wishFree == "" {
+			pd := app.newPageData(r, map[string]any{"Event": event, "Participant": p})
+			pd.Error = T("santa_wishes_required", lang)
+			app.render(w, r, "santa_edit.html", pd)
+			return
+		}
+		if err := SaveSantaWishes(app.DB, p.Token, wishBuy, wishMake, wishFree); err != nil {
+			log.Printf("santa wishes save error: %v", err)
+			pd := app.newPageData(r, map[string]any{"Event": event, "Participant": p})
+			pd.Error = T("error_server", lang)
+			app.render(w, r, "santa_edit.html", pd)
+			return
+		}
+		if updated, err := GetSantaParticipantByToken(app.DB, p.Token); err == nil {
+			p = updated
+		}
+		pd := app.newPageData(r, map[string]any{"Event": event, "Participant": p})
+		pd.Success = T("santa_wishes_saved", lang)
+		app.render(w, r, "santa_edit.html", pd)
+		return
+	}
+	pd := app.newPageData(r, map[string]any{"Event": event, "Participant": p})
+	app.render(w, r, "santa_edit.html", pd)
 }

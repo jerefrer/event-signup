@@ -140,6 +140,8 @@ func main() {
 	mux.HandleFunc("/rsvp", app.handlePublicRSVP)
 	mux.HandleFunc("/rsvp/lookup", app.handlePublicRSVPLookup)
 	mux.HandleFunc("/cancel/", app.handlePublicCancel)
+	mux.HandleFunc("/santa/register", app.handleSantaRegister)
+	mux.HandleFunc("/santa/edit", app.handleSantaEdit)
 
 	// Root redirect
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
