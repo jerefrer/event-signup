@@ -834,3 +834,112 @@ func DeleteAttendance(db *sql.DB, id int64) error {
 	_, err := db.Exec("DELETE FROM attendances WHERE id=?", id)
 	return err
 }
+
+// ---- Secret Santa ----
+
+type SantaParticipant struct {
+	ID           int64
+	EventID      int64
+	FirstName    string
+	LastName     string
+	Email        string
+	Lang         string
+	Token        string
+	WishBuy      string
+	WishMake     string
+	WishFree     string
+	CompletedAt  sql.NullString
+	AssignedToID sql.NullInt64
+	EmailSentAt  sql.NullString
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+const santaCols = "id, event_id, first_name, last_name, email, lang, token, wish_buy, wish_make, wish_free, completed_at, assigned_to_id, email_sent_at, created_at, updated_at"
+
+func scanSantaParticipant(row interface{ Scan(...any) error }) (*SantaParticipant, error) {
+	p := &SantaParticipant{}
+	err := row.Scan(&p.ID, &p.EventID, &p.FirstName, &p.LastName, &p.Email, &p.Lang, &p.Token,
+		&p.WishBuy, &p.WishMake, &p.WishFree, &p.CompletedAt, &p.AssignedToID, &p.EmailSentAt,
+		&p.CreatedAt, &p.UpdatedAt)
+	return p, err
+}
+
+// UpsertSantaParticipant creates a participant or, if one already exists for the
+// (event, email) pair, updates its name and language while preserving its token,
+// wishes and completion state.
+func UpsertSantaParticipant(db *sql.DB, eventID int64, firstName, lastName, email, lang string) (*SantaParticipant, error) {
+	var id int64
+	err := db.QueryRow("SELECT id FROM santa_participants WHERE event_id=? AND LOWER(email)=LOWER(?)", eventID, email).Scan(&id)
+	if err == nil {
+		if _, err := db.Exec("UPDATE santa_participants SET first_name=?, last_name=?, lang=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+			firstName, lastName, lang, id); err != nil {
+			return nil, err
+		}
+		return GetSantaParticipant(db, id)
+	}
+	token := GenerateToken()
+	res, err := db.Exec("INSERT INTO santa_participants (event_id, first_name, last_name, email, lang, token) VALUES (?, ?, ?, ?, ?, ?)",
+		eventID, firstName, lastName, email, lang, token)
+	if err != nil {
+		return nil, err
+	}
+	newID, _ := res.LastInsertId()
+	return GetSantaParticipant(db, newID)
+}
+
+func GetSantaParticipant(db *sql.DB, id int64) (*SantaParticipant, error) {
+	return scanSantaParticipant(db.QueryRow("SELECT "+santaCols+" FROM santa_participants WHERE id=?", id))
+}
+
+func GetSantaParticipantByToken(db *sql.DB, token string) (*SantaParticipant, error) {
+	return scanSantaParticipant(db.QueryRow("SELECT "+santaCols+" FROM santa_participants WHERE token=?", token))
+}
+
+func GetSantaParticipantByEmail(db *sql.DB, eventID int64, email string) (*SantaParticipant, error) {
+	return scanSantaParticipant(db.QueryRow("SELECT "+santaCols+" FROM santa_participants WHERE event_id=? AND LOWER(email)=LOWER(?)", eventID, email))
+}
+
+func ListSantaParticipants(db *sql.DB, eventID int64) ([]SantaParticipant, error) {
+	rows, err := db.Query("SELECT "+santaCols+" FROM santa_participants WHERE event_id=? ORDER BY last_name, first_name", eventID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ps []SantaParticipant
+	for rows.Next() {
+		p, err := scanSantaParticipant(rows)
+		if err != nil {
+			return nil, err
+		}
+		ps = append(ps, *p)
+	}
+	return ps, rows.Err()
+}
+
+func CountSantaParticipants(db *sql.DB, eventID int64) (total, completed int) {
+	db.QueryRow("SELECT COUNT(*) FROM santa_participants WHERE event_id=?", eventID).Scan(&total)
+	db.QueryRow("SELECT COUNT(*) FROM santa_participants WHERE event_id=? AND completed_at IS NOT NULL", eventID).Scan(&completed)
+	return
+}
+
+// SaveSantaWishes stores the three wishes and sets completed_at on first completion.
+func SaveSantaWishes(db *sql.DB, token, wishBuy, wishMake, wishFree string) error {
+	_, err := db.Exec(`UPDATE santa_participants
+		SET wish_buy=?, wish_make=?, wish_free=?,
+		    completed_at=COALESCE(completed_at, CURRENT_TIMESTAMP),
+		    updated_at=CURRENT_TIMESTAMP
+		WHERE token=?`, wishBuy, wishMake, wishFree, token)
+	return err
+}
+
+func DeleteSantaParticipant(db *sql.DB, id int64) error {
+	_, err := db.Exec("DELETE FROM santa_participants WHERE id=?", id)
+	return err
+}
+
+// MarkRevealEmailSent records that the reveal email has been delivered.
+func MarkRevealEmailSent(db *sql.DB, id int64) error {
+	_, err := db.Exec("UPDATE santa_participants SET email_sent_at=CURRENT_TIMESTAMP WHERE id=?", id)
+	return err
+}
