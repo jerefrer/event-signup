@@ -964,3 +964,23 @@ func DrawSecretSanta(ids []int64, rng *mrand.Rand) (map[int64]int64, error) {
 	}
 	return assignments, nil
 }
+
+// SaveSantaDraw persists the assignments and marks the event as drawn, in a
+// single transaction.
+func SaveSantaDraw(db *sql.DB, eventID int64, assignments map[int64]int64) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for giver, receiver := range assignments {
+		if _, err := tx.Exec("UPDATE santa_participants SET assigned_to_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND event_id=?",
+			receiver, giver, eventID); err != nil {
+			return fmt.Errorf("save assignment %d: %w", giver, err)
+		}
+	}
+	if _, err := tx.Exec("UPDATE events SET santa_drawn_at=CURRENT_TIMESTAMP WHERE id=?", eventID); err != nil {
+		return fmt.Errorf("mark event drawn: %w", err)
+	}
+	return tx.Commit()
+}

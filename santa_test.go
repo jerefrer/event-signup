@@ -216,6 +216,29 @@ func TestDrawSecretSanta(t *testing.T) {
 	}
 }
 
+func TestSaveSantaDraw(t *testing.T) {
+	db := testDB(t)
+	e := seedSantaEvent(t, db)
+	p1 := seedSantaParticipant(t, db, e.ID, "Alice", "alice@t.com", true)
+	p2 := seedSantaParticipant(t, db, e.ID, "Bob", "bob@t.com", true)
+
+	if err := SaveSantaDraw(db, e.ID, map[int64]int64{p1.ID: p2.ID, p2.ID: p1.ID}); err != nil {
+		t.Fatalf("save draw: %v", err)
+	}
+	got1, _ := GetSantaParticipant(db, p1.ID)
+	if !got1.AssignedToID.Valid || got1.AssignedToID.Int64 != p2.ID {
+		t.Errorf("p1 assigned_to = %v, want %d", got1.AssignedToID, p2.ID)
+	}
+	got2, _ := GetSantaParticipant(db, p2.ID)
+	if !got2.AssignedToID.Valid || got2.AssignedToID.Int64 != p1.ID {
+		t.Errorf("p2 assigned_to = %v, want %d", got2.AssignedToID, p1.ID)
+	}
+	ev, _ := GetEvent(db, e.ID)
+	if !ev.SantaDrawnAt.Valid {
+		t.Error("event santa_drawn_at should be set after the draw")
+	}
+}
+
 func TestSantaDrawnAtMigration(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
