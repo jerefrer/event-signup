@@ -7,9 +7,11 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -68,6 +70,8 @@ var snsCertCache sync.Map // SigningCertURL -> *rsa.PublicKey
 
 var snsCertHTTPClient = &http.Client{Timeout: 5 * time.Second}
 
+var snsSubscribeHTTPClient = &http.Client{Timeout: 10 * time.Second}
+
 func snsSigningKey(certURL string) (*rsa.PublicKey, error) {
 	if v, ok := snsCertCache.Load(certURL); ok {
 		return v.(*rsa.PublicKey), nil
@@ -122,4 +126,108 @@ func verifySNSMessage(env snsEnvelope) error {
 	}
 	h := sha1.Sum(canonical)
 	return rsa.VerifyPKCS1v15(pub, crypto.SHA1, h[:], sig)
+}
+
+// sesEvent is the SES event JSON carried inside an SNS Notification's Message.
+type sesEvent struct {
+	EventType        string `json:"eventType"`
+	NotificationType string `json:"notificationType"`
+	Mail             struct {
+		MessageID string `json:"messageId"`
+	} `json:"mail"`
+	Bounce *struct {
+		BounceType    string `json:"bounceType"`
+		BounceSubType string `json:"bounceSubType"`
+	} `json:"bounce"`
+	Complaint *struct {
+		ComplaintFeedbackType string `json:"complaintFeedbackType"`
+	} `json:"complaint"`
+	Reject *struct {
+		Reason string `json:"reason"`
+	} `json:"reject"`
+}
+
+// handleSESWebhook receives Amazon SNS deliveries of SES events. It is public
+// (SNS cannot authenticate) but every message's signature is verified.
+func (app *App) handleSESWebhook(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 256*1024))
+	if err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	var env snsEnvelope
+	if err := json.Unmarshal(body, &env); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if !app.SNSSkipVerify {
+		if err := verifySNSMessage(env); err != nil {
+			log.Printf("SES webhook: signature verification failed: %v", err)
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+	}
+	switch env.Type {
+	case "SubscriptionConfirmation":
+		if env.SubscribeURL != "" {
+			resp, err := snsSubscribeHTTPClient.Get(env.SubscribeURL)
+			if err != nil {
+				log.Printf("SES webhook: subscription confirmation failed: %v", err)
+			} else {
+				io.Copy(io.Discard, resp.Body)
+				resp.Body.Close()
+				log.Printf("SES webhook: SNS subscription confirmed")
+			}
+		}
+	case "Notification":
+		app.handleSESEvent(env.Message)
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+// handleSESEvent parses one SES event and updates the matching email_messages row.
+func (app *App) handleSESEvent(message string) {
+	var ev sesEvent
+	if err := json.Unmarshal([]byte(message), &ev); err != nil {
+		log.Printf("SES webhook: cannot parse event: %v", err)
+		return
+	}
+	eventType := ev.EventType
+	if eventType == "" {
+		eventType = ev.NotificationType
+	}
+	var status, detail string
+	switch eventType {
+	case "Send":
+		status = "sent"
+	case "Delivery":
+		status = "delivered"
+	case "Bounce":
+		status = "bounced"
+		if ev.Bounce != nil {
+			detail = ev.Bounce.BounceType + "/" + ev.Bounce.BounceSubType
+		}
+	case "Complaint":
+		status = "complaint"
+		if ev.Complaint != nil {
+			detail = ev.Complaint.ComplaintFeedbackType
+		}
+	case "Reject":
+		status = "rejected"
+		if ev.Reject != nil {
+			detail = ev.Reject.Reason
+		}
+	default:
+		return // unknown / uninteresting event type
+	}
+	if ev.Mail.MessageID == "" {
+		return
+	}
+	if _, err := ApplyEmailEvent(app.DB, ev.Mail.MessageID, status, detail); err != nil {
+		log.Printf("SES webhook: apply event %s/%s: %v", ev.Mail.MessageID, status, err)
+	}
 }

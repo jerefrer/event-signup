@@ -33,6 +33,7 @@ func testApp(t *testing.T) *App {
 		AdminPassword: "testpass",
 		BaseURL:       "http://localhost:8090",
 		Email:         &fakeEmailSender{},
+		SNSSkipVerify: true,
 		// EmailSendDelay: 0 and AsyncEmail: false (zero values) — reveal emails
 		// send synchronously in tests, so no goroutine races with t.Cleanup.
 	}

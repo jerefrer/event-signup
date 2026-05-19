@@ -27,6 +27,7 @@ func newMux(app *App) *http.ServeMux {
 	mux.HandleFunc("/admin/santa/draw", app.requireAdmin(app.handleAdminSantaDraw))
 	mux.HandleFunc("/admin/santa/resend", app.requireAdmin(app.handleAdminSantaResend))
 	mux.HandleFunc("/admin/santa/participant/delete", app.requireAdmin(app.handleAdminSantaParticipantDelete))
+	mux.HandleFunc("/webhooks/ses", app.handleSESWebhook)
 	return mux
 }
 

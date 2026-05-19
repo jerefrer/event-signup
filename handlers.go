@@ -25,6 +25,7 @@ type App struct {
 	EmailSendDelay time.Duration // pause between reveal emails (rate limiting)
 	AsyncEmail     bool          // true in production: reveal emails sent in a goroutine
 	sending        sync.Map      // event ID -> bool, guards concurrent reveal sends
+	SNSSkipVerify  bool          // true in tests: skip SNS signature verification
 }
 
 type PageData struct {

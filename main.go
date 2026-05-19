@@ -136,6 +136,7 @@ func main() {
 	mux.HandleFunc("/api/slots", app.handleAPISlots)
 
 	// Public routes
+	mux.HandleFunc("/webhooks/ses", app.handleSESWebhook)
 	mux.HandleFunc("/e/", app.handlePublicEvent)
 	mux.HandleFunc("/signup", app.handlePublicSignup)
 	mux.HandleFunc("/rsvp", app.handlePublicRSVP)
