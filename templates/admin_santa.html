@@ -46,6 +46,21 @@
             <button type="submit" class="btn btn-secondary"><i class="fa-solid fa-paper-plane"></i> {{t "santa_admin_resend_btn"}}</button>
         </form>
         {{else}}
+        <form method="POST" action="/admin/santa/import?lang={{lang}}" enctype="multipart/form-data" class="inline-form" style="margin-top:0.75rem;gap:0.5rem;flex-wrap:wrap;">
+            <input type="hidden" name="event_id" value="{{$event.ID}}">
+            <input type="file" name="file" accept=".csv,text/csv" required>
+            <button type="submit" class="btn btn-secondary"><i class="fa-solid fa-file-import"></i> {{t "santa_import_btn"}}</button>
+        </form>
+        <p class="form-hint" style="margin-top:0.25rem;">{{t "santa_import_hint"}}</p>
+
+        {{if $participants}}
+        <form method="POST" action="/admin/santa/invite?lang={{lang}}" class="inline-form" style="margin-top:0.75rem;" onsubmit="return confirm('{{t "santa_invite_confirm"}}')">
+            <input type="hidden" name="event_id" value="{{$event.ID}}">
+            <button type="submit" class="btn btn-secondary"><i class="fa-solid fa-paper-plane"></i> {{t "santa_invite_btn"}}</button>
+        </form>
+        <p class="form-hint" style="margin-top:0.25rem;"><strong>{{len $linkStatus}}</strong> {{t "santa_invite_count"}}</p>
+        {{end}}
+
         <form method="POST" action="/admin/santa/draw?lang={{lang}}" class="inline-form" style="margin-top:0.75rem;" onsubmit="return confirm('{{t "santa_admin_draw_confirm"}}')">
             <input type="hidden" name="event_id" value="{{$event.ID}}">
             <button type="submit" class="btn btn-primary" {{if lt $completed 2}}disabled{{end}}><i class="fa-solid fa-shuffle"></i> {{t "santa_admin_draw_btn"}}</button>

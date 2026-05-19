@@ -652,6 +652,31 @@ func TestAdminSantaInvite(t *testing.T) {
 	}
 }
 
+func TestAdminSantaPageShowsImportAndInvite(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", false)
+	mux := newMux(app)
+
+	w := getRequest(mux, fmt.Sprintf("/admin/event/santa?id=%d&lang=fr", e.ID), adminCookie(app))
+	if w.Code != 200 {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, T("santa_import_btn", LangFR)) {
+		t.Error("admin santa page should show the CSV import button before the draw")
+	}
+	if !strings.Contains(body, T("santa_invite_btn", LangFR)) {
+		t.Error("admin santa page should show the send-invitations button before the draw")
+	}
+	if !strings.Contains(body, `action="/admin/santa/import`) {
+		t.Error("admin santa page should contain the import form")
+	}
+	if !strings.Contains(body, `action="/admin/santa/invite`) {
+		t.Error("admin santa page should contain the invite form")
+	}
+}
+
 func TestAdminSantaInviteRejectedAfterDraw(t *testing.T) {
 	app := testApp(t)
 	e := seedSantaEvent(t, app.DB)
