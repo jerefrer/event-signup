@@ -14,18 +14,19 @@ import (
 	sesv2types "github.com/aws/aws-sdk-go-v2/service/sesv2/types"
 )
 
-// EmailSender delivers a single transactional HTML email.
+// EmailSender delivers a single transactional HTML email and returns the
+// provider's message ID (used to correlate later delivery events).
 type EmailSender interface {
-	Send(ctx context.Context, to, subject, htmlBody string) error
+	Send(ctx context.Context, to, subject, htmlBody string) (messageID string, err error)
 }
 
 // LogSender writes emails to the log instead of sending them. Used when SES is
 // not configured (development, manual testing).
 type LogSender struct{}
 
-func (LogSender) Send(ctx context.Context, to, subject, htmlBody string) error {
+func (LogSender) Send(ctx context.Context, to, subject, htmlBody string) (string, error) {
 	log.Printf("[email] to=%s subject=%q\n%s", to, subject, htmlBody)
-	return nil
+	return "", nil
 }
 
 type santaLinkEmailData struct {
@@ -95,20 +96,21 @@ func renderEmailTemplate(name string, data any) string {
 // SESSender sends email through AWS SES (SESv2 API). Credentials and region are
 // read from the standard AWS environment (AWS_REGION, AWS_ACCESS_KEY_ID, ...).
 type SESSender struct {
-	client *sesv2.Client
-	from   string
+	client    *sesv2.Client
+	from      string
+	configSet string // SES configuration set; enables delivery-event publishing
 }
 
-func NewSESSender(ctx context.Context, from string) (*SESSender, error) {
+func NewSESSender(ctx context.Context, from, configSet string) (*SESSender, error) {
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("load aws config: %w", err)
 	}
-	return &SESSender{client: sesv2.NewFromConfig(cfg), from: from}, nil
+	return &SESSender{client: sesv2.NewFromConfig(cfg), from: from, configSet: configSet}, nil
 }
 
-func (s *SESSender) Send(ctx context.Context, to, subject, htmlBody string) error {
-	_, err := s.client.SendEmail(ctx, &sesv2.SendEmailInput{
+func (s *SESSender) Send(ctx context.Context, to, subject, htmlBody string) (string, error) {
+	in := &sesv2.SendEmailInput{
 		FromEmailAddress: aws.String(s.from),
 		Destination:      &sesv2types.Destination{ToAddresses: []string{to}},
 		Content: &sesv2types.EmailContent{
@@ -119,11 +121,18 @@ func (s *SESSender) Send(ctx context.Context, to, subject, htmlBody string) erro
 				},
 			},
 		},
-	})
-	if err != nil {
-		return fmt.Errorf("ses send email: %w", err)
 	}
-	return nil
+	if s.configSet != "" {
+		in.ConfigurationSetName = aws.String(s.configSet)
+	}
+	out, err := s.client.SendEmail(ctx, in)
+	if err != nil {
+		return "", fmt.Errorf("ses send email: %w", err)
+	}
+	if out.MessageId == nil {
+		return "", nil
+	}
+	return *out.MessageId, nil
 }
 
 // dispatchRevealEmails starts sending reveal emails. In production (AsyncEmail)
@@ -178,7 +187,7 @@ func (app *App) sendRevealEmails(eventID int64) {
 			log.Printf("sendRevealEmails: empty rendered email body for participant %d, skipping", p.ID)
 			continue
 		}
-		if err := app.sendWithRetry(p.Email, subject, htmlBody); err != nil {
+		if _, err := app.sendWithRetry(p.Email, subject, htmlBody); err != nil {
 			log.Printf("sendRevealEmails: send to %s failed: %v", p.Email, err)
 			continue
 		}
@@ -189,18 +198,19 @@ func (app *App) sendRevealEmails(eventID int64) {
 }
 
 // sendWithRetry retries a transient send failure up to 3 attempts.
-func (app *App) sendWithRetry(to, subject, htmlBody string) error {
-	var err error
+func (app *App) sendWithRetry(to, subject, htmlBody string) (string, error) {
+	var lastErr error
 	for attempt := 0; attempt < 3; attempt++ {
 		if attempt > 0 {
 			// EmailSendDelay doubles as the retry backoff — adequate at this
 			// app's scale; a dedicated retry-delay field would be over-engineering.
 			time.Sleep(app.EmailSendDelay)
 		}
-		err = app.Email.Send(context.Background(), to, subject, htmlBody)
+		messageID, err := app.Email.Send(context.Background(), to, subject, htmlBody)
 		if err == nil {
-			return nil
+			return messageID, nil
 		}
+		lastErr = err
 	}
-	return err
+	return "", lastErr
 }

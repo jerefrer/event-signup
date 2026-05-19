@@ -65,9 +65,10 @@ func int64Ptr(v int64) *int64 { return &v }
 
 // sentEmail records one email handed to fakeEmailSender.
 type sentEmail struct {
-	To      string
-	Subject string
-	HTML    string
+	To        string
+	Subject   string
+	HTML      string
+	MessageID string
 }
 
 // fakeEmailSender records emails for assertions. failUntil makes the next N
@@ -78,15 +79,16 @@ type fakeEmailSender struct {
 	failUntil int
 }
 
-func (f *fakeEmailSender) Send(ctx context.Context, to, subject, htmlBody string) error {
+func (f *fakeEmailSender) Send(ctx context.Context, to, subject, htmlBody string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.failUntil > 0 {
 		f.failUntil--
-		return fmt.Errorf("fake email failure")
+		return "", fmt.Errorf("fake email failure")
 	}
-	f.sent = append(f.sent, sentEmail{To: to, Subject: subject, HTML: htmlBody})
-	return nil
+	id := fmt.Sprintf("fake-msg-%d", len(f.sent)+1)
+	f.sent = append(f.sent, sentEmail{To: to, Subject: subject, HTML: htmlBody, MessageID: id})
+	return id, nil
 }
 
 func (f *fakeEmailSender) count() int {
