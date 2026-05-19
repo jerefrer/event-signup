@@ -453,3 +453,51 @@ func TestSendRevealEmailsRecordsRevealEmails(t *testing.T) {
 		}
 	}
 }
+
+func TestAdminSantaShowsEmailStatus(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	p := seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", true)
+	if err := RecordEmailSent(app.DB, p.ID, "link", "ses-x", "alice@test.com"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ApplyEmailEvent(app.DB, "ses-x", "bounced", "Permanent/General"); err != nil {
+		t.Fatal(err)
+	}
+	mux := newMux(app)
+	w := getRequest(mux, fmt.Sprintf("/admin/event/santa?id=%d&lang=fr", e.ID), adminCookie(app))
+	if w.Code != 200 {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), T("email_status_bounced", LangFR)) {
+		t.Error("admin santa page should show the bounced link-email status")
+	}
+}
+
+func TestAdminSantaRevealProblems(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	p1 := seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", true)
+	p2 := seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", true)
+	SaveSantaDraw(app.DB, e.ID, map[int64]int64{p1.ID: p2.ID, p2.ID: p1.ID})
+	if err := RecordEmailSent(app.DB, p1.ID, "reveal", "ses-r1", "alice@test.com"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ApplyEmailEvent(app.DB, "ses-r1", "bounced", "Permanent/General"); err != nil {
+		t.Fatal(err)
+	}
+	mux := newMux(app)
+	w := getRequest(mux, fmt.Sprintf("/admin/event/santa?id=%d&lang=fr", e.ID), adminCookie(app))
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
+	}
+	body := w.Body.String()
+	// The template HTML-escapes apostrophes (d'envoi → d&#39;envoi), so check
+	// using the escaped form rather than the raw translated string.
+	if !strings.Contains(body, "problème(s) d&#39;envoi") {
+		t.Error("admin santa page should show the reveal-email problems count after a bounce")
+	}
+	if !strings.Contains(body, T("email_status_bounced", LangFR)) {
+		t.Error("admin santa page should show the bounced reveal-email status")
+	}
+}

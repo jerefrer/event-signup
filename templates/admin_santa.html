@@ -1,3 +1,12 @@
+{{define "santa-email-badge"}}
+{{- if eq .Status "delivered"}}<span class="badge badge-success">{{t "email_status_delivered"}}</span>
+{{- else if eq .Status "bounced"}}<span class="badge badge-danger" title="{{.StatusDetail}}">{{t "email_status_bounced"}}</span>
+{{- else if eq .Status "complaint"}}<span class="badge badge-danger" title="{{.StatusDetail}}">{{t "email_status_complaint"}}</span>
+{{- else if eq .Status "rejected"}}<span class="badge badge-danger" title="{{.StatusDetail}}">{{t "email_status_rejected"}}</span>
+{{- else if eq .Status "sent"}}<span class="badge badge-info">{{t "email_status_sent"}}</span>
+{{- else}}<span style="color:#999;">&mdash;</span>
+{{- end}}
+{{- end}}
 {{define "content"}}
 {{$data := .Data}}
 {{$event := index $data "Event"}}
@@ -8,6 +17,9 @@
 {{$pending := index $data "Pending"}}
 {{$drawn := index $data "Drawn"}}
 {{$sentCount := index $data "SentCount"}}
+{{$linkStatus := index $data "LinkStatus"}}
+{{$revealStatus := index $data "RevealStatus"}}
+{{$revealProblems := index $data "RevealProblems"}}
 
 <div class="admin-header">
     <div class="header-left">
@@ -28,7 +40,7 @@
 
         {{if $drawn}}
         <p style="margin-top:0.75rem;">{{t "santa_admin_drawn"}} {{$event.SantaDrawnAt.String}}</p>
-        <p><strong>{{$sentCount}}</strong> / {{$completed}} {{t "santa_admin_emails_sent"}}</p>
+        <p><strong>{{$sentCount}}</strong> / {{$completed}} {{t "santa_admin_emails_sent"}}{{if gt $revealProblems 0}} · <span class="badge badge-danger">{{$revealProblems}} {{t "santa_admin_email_problems"}}</span>{{end}}</p>
         <form method="POST" action="/admin/santa/resend?lang={{lang}}" class="inline-form" style="margin-top:0.5rem;">
             <input type="hidden" name="event_id" value="{{$event.ID}}">
             <button type="submit" class="btn btn-secondary"><i class="fa-solid fa-paper-plane"></i> {{t "santa_admin_resend_btn"}}</button>
@@ -63,7 +75,8 @@
                         <th>{{t "santa_wish_make"}}</th>
                         <th>{{t "santa_wish_free"}}</th>
                         <th>{{t "santa_admin_completed_col"}}</th>
-                        {{if $drawn}}<th>{{t "santa_admin_assigned_to"}}</th><th>{{t "santa_admin_email_sent_col"}}</th>{{else}}<th></th>{{end}}
+                        <th>{{t "santa_admin_link_email_col"}}</th>
+                        {{if $drawn}}<th>{{t "santa_admin_assigned_to"}}</th><th>{{t "santa_admin_reveal_email_col"}}</th>{{else}}<th></th>{{end}}
                     </tr>
                 </thead>
                 <tbody>
@@ -76,9 +89,10 @@
                         <td>{{.WishMake}}</td>
                         <td>{{.WishFree}}</td>
                         <td>{{if .CompletedAt.Valid}}<span class="badge badge-success">{{t "santa_admin_yes"}}</span>{{else}}<span class="badge badge-danger">{{t "santa_admin_no"}}</span>{{end}}</td>
+                        <td>{{template "santa-email-badge" (index $linkStatus .ID)}}</td>
                         {{if $drawn}}
                         <td>{{if .AssignedToID.Valid}}{{$r := index $byID .AssignedToID.Int64}}{{$r.FirstName}} {{$r.LastName}}{{end}}</td>
-                        <td>{{if .EmailSentAt.Valid}}<span class="badge badge-success">{{t "santa_admin_yes"}}</span>{{else}}<span class="badge badge-danger">{{t "santa_admin_no"}}</span>{{end}}</td>
+                        <td>{{template "santa-email-badge" (index $revealStatus .ID)}}</td>
                         {{else}}
                         <td>
                             <form method="POST" action="/admin/santa/participant/delete?lang={{lang}}" class="inline-form" onsubmit="return confirm('{{t "santa_admin_delete_confirm"}}')">

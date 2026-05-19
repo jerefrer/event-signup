@@ -1164,15 +1164,33 @@ func (app *App) santaAdminData(event *Event) map[string]any {
 			sentCount++
 		}
 	}
+	linkStatus := map[int64]EmailMessage{}
+	revealStatus := map[int64]EmailMessage{}
+	revealProblems := 0
+	msgs, _ := ListEmailMessages(app.DB, event.ID)
+	for _, m := range msgs {
+		switch m.Kind {
+		case "link":
+			linkStatus[m.ParticipantID] = m
+		case "reveal":
+			revealStatus[m.ParticipantID] = m
+			if m.Status == "bounced" || m.Status == "complaint" || m.Status == "rejected" {
+				revealProblems++
+			}
+		}
+	}
 	return map[string]any{
-		"Event":        event,
-		"Participants": participants,
-		"ByID":         byID,
-		"Total":        total,
-		"Completed":    completed,
-		"Pending":      total - completed,
-		"Drawn":        event.SantaDrawnAt.Valid,
-		"SentCount":    sentCount,
+		"Event":          event,
+		"Participants":   participants,
+		"ByID":           byID,
+		"Total":          total,
+		"Completed":      completed,
+		"Pending":        total - completed,
+		"Drawn":          event.SantaDrawnAt.Valid,
+		"SentCount":      sentCount,
+		"LinkStatus":     linkStatus,
+		"RevealStatus":   revealStatus,
+		"RevealProblems": revealProblems,
 	}
 }
 
