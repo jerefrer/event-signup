@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"math/rand"
 	"strings"
 	"testing"
@@ -265,6 +266,115 @@ func TestRenderSantaEmails(t *testing.T) {
 		if !strings.Contains(html2, want) {
 			t.Errorf("reveal email is missing %q", want)
 		}
+	}
+}
+
+func TestNormalizeSantaLang(t *testing.T) {
+	cases := []struct {
+		name, in, want string
+	}{
+		{"french code", "fr", "fr"},
+		{"french word", "Français", "fr"},
+		{"english code", "en", "en"},
+		{"english word", "English", "en"},
+		{"empty defaults to french", "", "fr"},
+		{"unknown defaults to french", "espagnol", "fr"},
+		{"english with spaces", "  EN  ", "en"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := normalizeSantaLang(c.in); got != c.want {
+				t.Errorf("normalizeSantaLang(%q) = %q, want %q", c.in, got, c.want)
+			}
+		})
+	}
+}
+
+func TestParseSantaCSV(t *testing.T) {
+	cases := []struct {
+		name        string
+		in          string
+		wantRows    []santaCSVRow
+		wantSkipped int
+		wantErr     error
+	}{
+		{
+			name: "comma delimited, headers in order",
+			in:   "email,Nom,Prénom,Langue\nalice@test.com,Dupont,Alice,fr\nbob@test.com,Martin,Bob,en\n",
+			wantRows: []santaCSVRow{
+				{FirstName: "Alice", LastName: "Dupont", Email: "alice@test.com", Lang: "fr"},
+				{FirstName: "Bob", LastName: "Martin", Email: "bob@test.com", Lang: "en"},
+			},
+		},
+		{
+			name: "headers reordered with extra ignored columns",
+			in:   "Prénom,Ville,email,Nom\nAlice,Paris,alice@test.com,Dupont\n",
+			wantRows: []santaCSVRow{
+				{FirstName: "Alice", LastName: "Dupont", Email: "alice@test.com", Lang: "fr"},
+			},
+		},
+		{
+			name: "semicolon delimiter is detected",
+			in:   "email;Nom;Prénom;Langue\nalice@test.com;Dupont;Alice;en\n",
+			wantRows: []santaCSVRow{
+				{FirstName: "Alice", LastName: "Dupont", Email: "alice@test.com", Lang: "en"},
+			},
+		},
+		{
+			name: "leading UTF-8 BOM is stripped",
+			in:   "\xef\xbb\xbfemail,Nom,Prénom\nalice@test.com,Dupont,Alice\n",
+			wantRows: []santaCSVRow{
+				{FirstName: "Alice", LastName: "Dupont", Email: "alice@test.com", Lang: "fr"},
+			},
+		},
+		{
+			name: "header case and surrounding spaces tolerated",
+			in:   " EMAIL , nom , PRENOM \nalice@test.com,Dupont,Alice\n",
+			wantRows: []santaCSVRow{
+				{FirstName: "Alice", LastName: "Dupont", Email: "alice@test.com", Lang: "fr"},
+			},
+		},
+		{
+			name:        "rows with invalid email are skipped",
+			in:          "email,Prénom\nalice@test.com,Alice\n,Bob\nnotanemail,Carol\n",
+			wantRows:    []santaCSVRow{{FirstName: "Alice", Email: "alice@test.com", Lang: "fr"}},
+			wantSkipped: 2,
+		},
+		{
+			name:    "missing email column is an error",
+			in:      "Nom,Prénom\nDupont,Alice\n",
+			wantErr: errSantaCSVNoEmail,
+		},
+		{
+			name:    "empty input is an error",
+			in:      "",
+			wantErr: errSantaCSVNoEmail,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rows, skipped, err := parseSantaCSV(strings.NewReader(c.in))
+			if c.wantErr != nil {
+				if !errors.Is(err, c.wantErr) {
+					t.Fatalf("err = %v, want %v", err, c.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if skipped != c.wantSkipped {
+				t.Errorf("skipped = %d, want %d", skipped, c.wantSkipped)
+			}
+			if len(rows) != len(c.wantRows) {
+				t.Fatalf("got %d rows, want %d (%+v)", len(rows), len(c.wantRows), rows)
+			}
+			for i, want := range c.wantRows {
+				if rows[i] != want {
+					t.Errorf("row %d = %+v, want %+v", i, rows[i], want)
+				}
+			}
+		})
 	}
 }
 

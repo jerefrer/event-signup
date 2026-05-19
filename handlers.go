@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -1293,4 +1295,107 @@ func (app *App) handleAdminSantaParticipantDelete(w http.ResponseWriter, r *http
 		DeleteSantaParticipant(app.DB, id)
 	}
 	http.Redirect(w, r, fmt.Sprintf("/admin/event/santa?id=%d&lang=%s", eventID, lang), http.StatusSeeOther)
+}
+
+// ---- Secret Santa: CSV import parsing ----
+
+// santaCSVRow is one parsed, validated participant from an imported CSV.
+type santaCSVRow struct {
+	FirstName string
+	LastName  string
+	Email     string
+	Lang      string
+}
+
+// errSantaCSVNoEmail is returned by parseSantaCSV when the file has no column
+// recognised as the email column (also covers an empty file).
+var errSantaCSVNoEmail = errors.New("santa csv: no email column")
+
+// santaCSVField maps a CSV header cell to a canonical field name, or "" when
+// the header is not one we use. Matching is case-insensitive and trimmed.
+func santaCSVField(header string) string {
+	switch strings.ToLower(strings.TrimSpace(header)) {
+	case "email", "e-mail", "courriel":
+		return "email"
+	case "prénom", "prenom", "first name", "first_name", "firstname":
+		return "first_name"
+	case "nom", "last name", "last_name", "lastname":
+		return "last_name"
+	case "langue", "lang", "language":
+		return "lang"
+	}
+	return ""
+}
+
+// normalizeSantaLang reduces a free-form language cell to "fr" or "en".
+// Anything that does not clearly start with "en" defaults to French.
+func normalizeSantaLang(v string) string {
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(v)), "en") {
+		return "en"
+	}
+	return "fr"
+}
+
+// parseSantaCSV reads a participant CSV. It strips a leading UTF-8 BOM,
+// auto-detects a ',' or ';' delimiter, and maps columns by header name. Rows
+// whose email is empty or has no '@' are dropped and counted in skipped. It
+// returns errSantaCSVNoEmail when no email column is present (or the file is
+// empty), or a wrapped error when the input cannot be read or parsed.
+func parseSantaCSV(r io.Reader) (rows []santaCSVRow, skipped int, err error) {
+	raw, err := io.ReadAll(r)
+	if err != nil {
+		return nil, 0, fmt.Errorf("read santa csv: %w", err)
+	}
+	content := strings.TrimPrefix(string(raw), "\xef\xbb\xbf") // UTF-8 BOM
+
+	firstLine := content
+	if i := strings.IndexAny(content, "\r\n"); i >= 0 {
+		firstLine = content[:i]
+	}
+	comma := ','
+	if strings.Count(firstLine, ";") > strings.Count(firstLine, ",") {
+		comma = ';'
+	}
+
+	cr := csv.NewReader(strings.NewReader(content))
+	cr.Comma = comma
+	cr.FieldsPerRecord = -1 // tolerate ragged rows
+	records, err := cr.ReadAll()
+	if err != nil {
+		return nil, 0, fmt.Errorf("parse santa csv: %w", err)
+	}
+	if len(records) == 0 {
+		return nil, 0, errSantaCSVNoEmail
+	}
+
+	col := map[string]int{"email": -1, "first_name": -1, "last_name": -1, "lang": -1}
+	for i, h := range records[0] {
+		if f := santaCSVField(h); f != "" && col[f] == -1 {
+			col[f] = i
+		}
+	}
+	if col["email"] == -1 {
+		return nil, 0, errSantaCSVNoEmail
+	}
+
+	at := func(rec []string, i int) string {
+		if i >= 0 && i < len(rec) {
+			return strings.TrimSpace(rec[i])
+		}
+		return ""
+	}
+	for _, rec := range records[1:] {
+		email := at(rec, col["email"])
+		if email == "" || !strings.Contains(email, "@") {
+			skipped++
+			continue
+		}
+		rows = append(rows, santaCSVRow{
+			FirstName: at(rec, col["first_name"]),
+			LastName:  at(rec, col["last_name"]),
+			Email:     email,
+			Lang:      normalizeSantaLang(at(rec, col["lang"])),
+		})
+	}
+	return rows, skipped, nil
 }
