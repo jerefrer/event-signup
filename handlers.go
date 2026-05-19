@@ -1353,6 +1353,30 @@ func (app *App) handleAdminSantaImport(w http.ResponseWriter, r *http.Request) {
 	renderMsg("", fmt.Sprintf(T("santa_import_done", lang), created, updated, skipped))
 }
 
+func (app *App) handleAdminSantaInvite(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+		return
+	}
+	lang := LangFromRequest(r)
+	eventID, _ := strconv.ParseInt(r.FormValue("event_id"), 10, 64)
+	event, err := GetEvent(app.DB, eventID)
+	if err != nil || event.EventType != "secret_santa" {
+		http.NotFound(w, r)
+		return
+	}
+	if event.SantaDrawnAt.Valid {
+		pd := app.newPageData(r, app.santaAdminData(event))
+		pd.Error = T("santa_invite_closed", lang)
+		app.render(w, r, "admin_santa.html", pd)
+		return
+	}
+	app.dispatchInviteEmails(event.ID)
+	pd := app.newPageData(r, app.santaAdminData(event))
+	pd.Success = T("santa_invite_done", lang)
+	app.render(w, r, "admin_santa.html", pd)
+}
+
 // ---- Secret Santa: CSV import parsing ----
 
 // santaCSVRow is one parsed, validated participant from an imported CSV.

@@ -629,3 +629,46 @@ func TestAdminSantaImportRejectedAfterDraw(t *testing.T) {
 		t.Error("no participant should have been imported after the draw")
 	}
 }
+
+func TestAdminSantaInvite(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", false)
+	seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", false)
+	mux := newMux(app)
+
+	w := postForm(mux, "/admin/santa/invite?lang=fr", url.Values{
+		"event_id": {fmt.Sprint(e.ID)},
+	}, adminCookie(app))
+	if w.Code != 200 {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	fake := app.Email.(*fakeEmailSender)
+	if fake.count() != 2 {
+		t.Fatalf("expected 2 invitation emails, got %d", fake.count())
+	}
+	if !strings.Contains(w.Body.String(), T("santa_invite_done", LangFR)) {
+		t.Error("expected the invitation-sent confirmation message")
+	}
+}
+
+func TestAdminSantaInviteRejectedAfterDraw(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	p1 := seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", true)
+	p2 := seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", true)
+	SaveSantaDraw(app.DB, e.ID, map[int64]int64{p1.ID: p2.ID, p2.ID: p1.ID})
+	fake := app.Email.(*fakeEmailSender)
+	before := fake.count()
+	mux := newMux(app)
+
+	w := postForm(mux, "/admin/santa/invite?lang=fr", url.Values{
+		"event_id": {fmt.Sprint(e.ID)},
+	}, adminCookie(app))
+	if !strings.Contains(w.Body.String(), T("santa_invite_closed", LangFR)) {
+		t.Error("invitations should be refused once the draw has happened")
+	}
+	if fake.count() != before {
+		t.Error("no invitation email should be sent after the draw")
+	}
+}
