@@ -400,3 +400,56 @@ func TestAdminSantaResendBeforeDraw(t *testing.T) {
 		t.Error("resend before the draw must not show the 'resend in progress' message")
 	}
 }
+
+func TestSantaRegisterRecordsLinkEmail(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	mux := newMux(app)
+	postForm(mux, "/santa/register?lang=fr", url.Values{
+		"event_id":   {fmt.Sprint(e.ID)},
+		"first_name": {"Alice"},
+		"last_name":  {"Dupont"},
+		"email":      {"alice@test.com"},
+	})
+	p, err := GetSantaParticipantByEmail(app.DB, e.ID, "alice@test.com")
+	if err != nil {
+		t.Fatalf("participant not created: %v", err)
+	}
+	fake := app.Email.(*fakeEmailSender)
+	if len(fake.sent) != 1 {
+		t.Fatalf("expected 1 email, got %d", len(fake.sent))
+	}
+	m, err := GetEmailMessageBySESID(app.DB, fake.sent[0].MessageID)
+	if err != nil {
+		t.Fatalf("email_messages row not recorded: %v", err)
+	}
+	if m.Kind != "link" || m.ParticipantID != p.ID || m.Status != "sent" {
+		t.Errorf("unexpected email_messages row: %+v", m)
+	}
+}
+
+func TestSendRevealEmailsRecordsRevealEmails(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	p1 := seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", true)
+	p2 := seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", true)
+	SaveSantaDraw(app.DB, e.ID, map[int64]int64{p1.ID: p2.ID, p2.ID: p1.ID})
+
+	app.sendRevealEmails(e.ID)
+
+	msgs, err := ListEmailMessages(app.DB, e.ID)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(msgs) != 2 {
+		t.Fatalf("expected 2 reveal email_messages rows, got %d", len(msgs))
+	}
+	for _, m := range msgs {
+		if m.Kind != "reveal" {
+			t.Errorf("kind = %q, want reveal", m.Kind)
+		}
+		if m.SESMessageID == "" {
+			t.Error("reveal email_messages row has no SES message ID")
+		}
+	}
+}

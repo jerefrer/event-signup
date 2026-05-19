@@ -1085,12 +1085,16 @@ func (app *App) handleSantaRegister(w http.ResponseWriter, r *http.Request) {
 		app.render(w, r, "public_santa.html", pd)
 		return
 	}
-	if _, err := app.Email.Send(r.Context(), p.Email, subject, htmlBody); err != nil {
+	messageID, err := app.Email.Send(r.Context(), p.Email, subject, htmlBody)
+	if err != nil {
 		log.Printf("santa link email error: %v", err)
 		pd := app.newPageData(r, map[string]any{"Event": event})
 		pd.Error = T("santa_email_error", lang)
 		app.render(w, r, "public_santa.html", pd)
 		return
+	}
+	if err := RecordEmailSent(app.DB, p.ID, "link", messageID, p.Email); err != nil {
+		log.Printf("santa link email record error: %v", err)
 	}
 	pd := app.newPageData(r, map[string]any{"Event": event, "LinkSent": true})
 	app.render(w, r, "public_santa.html", pd)

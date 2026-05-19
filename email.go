@@ -187,12 +187,16 @@ func (app *App) sendRevealEmails(eventID int64) {
 			log.Printf("sendRevealEmails: empty rendered email body for participant %d, skipping", p.ID)
 			continue
 		}
-		if _, err := app.sendWithRetry(p.Email, subject, htmlBody); err != nil {
+		messageID, err := app.sendWithRetry(p.Email, subject, htmlBody)
+		if err != nil {
 			log.Printf("sendRevealEmails: send to %s failed: %v", p.Email, err)
 			continue
 		}
 		if err := MarkRevealEmailSent(app.DB, p.ID); err != nil {
 			log.Printf("sendRevealEmails: mark sent %d: %v", p.ID, err)
+		}
+		if err := RecordEmailSent(app.DB, p.ID, "reveal", messageID, p.Email); err != nil {
+			log.Printf("sendRevealEmails: record %d: %v", p.ID, err)
 		}
 	}
 }
