@@ -4,5 +4,6 @@ data.db-shm
 data.db-wal
 *.db
 .env
+.envrc
 .serena
 .DS_Store
