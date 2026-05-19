@@ -86,3 +86,18 @@ CREATE TABLE IF NOT EXISTS santa_participants (
 
 CREATE INDEX IF NOT EXISTS idx_santa_participants_event ON santa_participants(event_id);
 CREATE INDEX IF NOT EXISTS idx_santa_participants_token ON santa_participants(token);
+
+CREATE TABLE IF NOT EXISTS email_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    participant_id INTEGER NOT NULL REFERENCES santa_participants(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    ses_message_id TEXT NOT NULL DEFAULT '',
+    to_email TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'sent',
+    status_detail TEXT NOT NULL DEFAULT '',
+    sent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(participant_id, kind)
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_messages_ses_id ON email_messages(ses_message_id);
