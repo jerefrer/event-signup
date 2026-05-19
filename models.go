@@ -984,3 +984,107 @@ func SaveSantaDraw(db *sql.DB, eventID int64, assignments map[int64]int64) error
 	}
 	return tx.Commit()
 }
+
+// ---- Email delivery tracking ----
+
+type EmailMessage struct {
+	ID            int64
+	ParticipantID int64
+	Kind          string // "link" or "reveal"
+	SESMessageID  string
+	ToEmail       string
+	Status        string // sent | delivered | bounced | complaint | rejected
+	StatusDetail  string
+	SentAt        time.Time
+	UpdatedAt     time.Time
+}
+
+const emailMessageCols = "id, participant_id, kind, ses_message_id, to_email, status, status_detail, sent_at, updated_at"
+
+func scanEmailMessage(row interface{ Scan(...any) error }) (*EmailMessage, error) {
+	m := &EmailMessage{}
+	err := row.Scan(&m.ID, &m.ParticipantID, &m.Kind, &m.SESMessageID, &m.ToEmail,
+		&m.Status, &m.StatusDetail, &m.SentAt, &m.UpdatedAt)
+	return m, err
+}
+
+// emailStatusRank orders statuses so a later, less-significant event cannot
+// overwrite a more-significant one (e.g. a late "delivered" cannot erase a
+// "bounced"). A higher rank wins.
+func emailStatusRank(status string) int {
+	switch status {
+	case "delivered":
+		return 1
+	case "rejected":
+		return 2
+	case "bounced":
+		return 3
+	case "complaint":
+		return 4
+	default: // "sent" and anything unknown
+		return 0
+	}
+}
+
+// RecordEmailSent inserts (or, for an existing (participant, kind) pair, resets)
+// the email_messages row for an email just handed to the sender.
+func RecordEmailSent(db *sql.DB, participantID int64, kind, sesMessageID, toEmail string) error {
+	_, err := db.Exec(`INSERT INTO email_messages (participant_id, kind, ses_message_id, to_email, status, status_detail, sent_at, updated_at)
+		VALUES (?, ?, ?, ?, 'sent', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		ON CONFLICT(participant_id, kind) DO UPDATE SET
+			ses_message_id=excluded.ses_message_id,
+			to_email=excluded.to_email,
+			status='sent', status_detail='',
+			sent_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP`,
+		participantID, kind, sesMessageID, toEmail)
+	return err
+}
+
+func GetEmailMessageBySESID(db *sql.DB, sesMessageID string) (*EmailMessage, error) {
+	return scanEmailMessage(db.QueryRow("SELECT "+emailMessageCols+" FROM email_messages WHERE ses_message_id=?", sesMessageID))
+}
+
+// ApplyEmailEvent updates the status of the email_messages row matching the SES
+// message ID, honouring the transition rule (a lower-rank status never
+// overwrites a higher-rank one). Returns whether a row was updated. An unknown
+// message ID is a silent no-op.
+func ApplyEmailEvent(db *sql.DB, sesMessageID, status, detail string) (bool, error) {
+	var current string
+	err := db.QueryRow("SELECT status FROM email_messages WHERE ses_message_id=?", sesMessageID).Scan(&current)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	// A lower-rank event never overwrites a higher-rank one. Equal rank IS
+	// applied, so a newer event's StatusDetail replaces the previous one.
+	if emailStatusRank(status) < emailStatusRank(current) {
+		return false, nil
+	}
+	if _, err := db.Exec("UPDATE email_messages SET status=?, status_detail=?, updated_at=CURRENT_TIMESTAMP WHERE ses_message_id=?",
+		status, detail, sesMessageID); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// ListEmailMessages returns every email_messages row for an event's participants.
+func ListEmailMessages(db *sql.DB, eventID int64) ([]EmailMessage, error) {
+	rows, err := db.Query(`SELECT em.id, em.participant_id, em.kind, em.ses_message_id, em.to_email, em.status, em.status_detail, em.sent_at, em.updated_at
+		FROM email_messages em JOIN santa_participants sp ON em.participant_id = sp.id
+		WHERE sp.event_id = ? ORDER BY em.participant_id, em.kind`, eventID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var msgs []EmailMessage
+	for rows.Next() {
+		m, err := scanEmailMessage(rows)
+		if err != nil {
+			return nil, err
+		}
+		msgs = append(msgs, *m)
+	}
+	return msgs, rows.Err()
+}
