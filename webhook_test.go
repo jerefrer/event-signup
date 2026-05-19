@@ -50,6 +50,10 @@ func TestVerifySNSMessageRejectsBadCertURL(t *testing.T) {
 	if err := verifySNSMessage(snsEnvelope{Type: "Notification", SigningCertURL: "http://sns.eu-west-1.amazonaws.com/cert.pem"}); err == nil {
 		t.Error("expected rejection of a non-https SigningCertURL")
 	}
+	// a non-SNS amazonaws.com host (e.g. an attacker-controlled S3 bucket) must be rejected
+	if err := verifySNSMessage(snsEnvelope{Type: "Notification", SigningCertURL: "https://evil-bucket.s3.amazonaws.com/cert.pem"}); err == nil {
+		t.Error("expected rejection of a non-SNS amazonaws.com host")
+	}
 }
 
 // postRaw POSTs a raw (non-form) body, as SNS does.

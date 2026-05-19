@@ -105,11 +105,19 @@ func snsSigningKey(certURL string) (*rsa.PublicKey, error) {
 }
 
 // verifySNSMessage validates the cryptographic signature of an SNS message. The
-// SigningCertURL must be an https URL on an amazonaws.com host.
+// SigningCertURL must be an https URL on an SNS-controlled amazonaws.com host.
 func verifySNSMessage(env snsEnvelope) error {
 	u, err := url.Parse(env.SigningCertURL)
-	if err != nil || u.Scheme != "https" || !strings.HasSuffix(strings.ToLower(u.Hostname()), ".amazonaws.com") {
+	if err != nil || u.Scheme != "https" {
 		return fmt.Errorf("invalid SigningCertURL %q", env.SigningCertURL)
+	}
+	// The cert URL must be an AWS SNS host. A bare ".amazonaws.com" suffix is
+	// NOT sufficient: an attacker can host a forged certificate on their own S3
+	// bucket (e.g. bucket.s3.amazonaws.com) and sign messages with its key.
+	// Only sns.<region>.amazonaws.com hosts are controlled by AWS SNS.
+	host := strings.ToLower(u.Hostname())
+	if !strings.HasPrefix(host, "sns.") || !strings.HasSuffix(host, ".amazonaws.com") {
+		return fmt.Errorf("invalid SigningCertURL host %q", host)
 	}
 	pub, err := snsSigningKey(env.SigningCertURL)
 	if err != nil {
