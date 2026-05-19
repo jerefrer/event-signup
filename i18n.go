@@ -229,7 +229,7 @@ var translations = map[string]Translations{
 	"santa_email_greeting":       {"fr": "Bonjour %s,", "en": "Hello %s,"},
 	"santa_email_link_subject":   {"fr": "Votre lien pour", "en": "Your link for"},
 	"santa_email_link_title":     {"fr": "Votre Secret Santa", "en": "Your Secret Santa"},
-	"santa_email_link_intro":     {"fr": "Cliquez sur le bouton ci-dessous pour remplir votre liste de souhaits.", "en": "Click the button below to fill in your wish list."},
+	"santa_email_link_intro":     {"fr": "Voici votre lien personnel pour composer votre liste de souhaits. Cliquez sur le bouton ci-dessous.", "en": "Here is your personal link to put together your wish list. Click the button below."},
 	"santa_email_link_button":    {"fr": "Remplir ma liste", "en": "Fill in my list"},
 	"santa_email_reveal_subject": {"fr": "Votre tirage Secret Santa pour", "en": "Your Secret Santa draw for"},
 	"santa_email_reveal_title":   {"fr": "Le tirage est fait !", "en": "The draw is done!"},

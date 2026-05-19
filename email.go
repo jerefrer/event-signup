@@ -201,6 +201,73 @@ func (app *App) sendRevealEmails(eventID int64) {
 	}
 }
 
+// dispatchInviteEmails starts sending invitation emails. In production
+// (AsyncEmail) it runs in a goroutine so the HTTP request returns immediately;
+// in tests it runs synchronously.
+func (app *App) dispatchInviteEmails(eventID int64) {
+	if app.AsyncEmail {
+		go app.sendInviteEmails(eventID)
+	} else {
+		app.sendInviteEmails(eventID)
+	}
+}
+
+// sendInviteEmails sends the magic-link email to every participant of the event
+// who has not been sent a "link" email yet. It is rate-limited and guarded so
+// only one send runs per event at a time.
+func (app *App) sendInviteEmails(eventID int64) {
+	if _, busy := app.sending.LoadOrStore(eventID, true); busy {
+		return
+	}
+	defer app.sending.Delete(eventID)
+
+	event, err := GetEvent(app.DB, eventID)
+	if err != nil {
+		log.Printf("sendInviteEmails: event %d: %v", eventID, err)
+		return
+	}
+	participants, err := ListSantaParticipants(app.DB, eventID)
+	if err != nil {
+		log.Printf("sendInviteEmails: list participants: %v", err)
+		return
+	}
+	msgs, err := ListEmailMessages(app.DB, eventID)
+	if err != nil {
+		log.Printf("sendInviteEmails: list email messages: %v", err)
+		return
+	}
+	invited := make(map[int64]bool)
+	for _, m := range msgs {
+		if m.Kind == "link" {
+			invited[m.ParticipantID] = true
+		}
+	}
+	first := true
+	for _, p := range participants {
+		if invited[p.ID] {
+			continue
+		}
+		if !first {
+			time.Sleep(app.EmailSendDelay)
+		}
+		first = false
+		editURL := fmt.Sprintf("%s/santa/edit?token=%s&lang=%s", app.BaseURL, p.Token, p.Lang)
+		subject, htmlBody := renderSantaLinkEmail(p.Lang, p, *event, editURL)
+		if htmlBody == "" {
+			log.Printf("sendInviteEmails: empty rendered email body for participant %d, skipping", p.ID)
+			continue
+		}
+		messageID, err := app.sendWithRetry(p.Email, subject, htmlBody)
+		if err != nil {
+			log.Printf("sendInviteEmails: send to %s failed: %v", p.Email, err)
+			continue
+		}
+		if err := RecordEmailSent(app.DB, p.ID, "link", messageID, p.Email); err != nil {
+			log.Printf("sendInviteEmails: record %d: %v", p.ID, err)
+		}
+	}
+}
+
 // sendWithRetry retries a transient send failure up to 3 attempts.
 func (app *App) sendWithRetry(to, subject, htmlBody string) (string, error) {
 	var lastErr error

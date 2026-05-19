@@ -563,6 +563,54 @@ func TestAdminSantaImportIdempotent(t *testing.T) {
 	}
 }
 
+func TestSantaSendInviteEmails(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	p1 := seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", false)
+	seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", false)
+
+	app.sendInviteEmails(e.ID)
+
+	fake := app.Email.(*fakeEmailSender)
+	if fake.count() != 2 {
+		t.Fatalf("expected 2 invitation emails, got %d", fake.count())
+	}
+	// Every "link" email carries that participant's edit token.
+	found := false
+	for _, m := range fake.sent {
+		if m.To == "alice@test.com" && strings.Contains(m.HTML, p1.Token) {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("alice's invitation should contain her edit token")
+	}
+	// A link email_messages row was recorded for each participant.
+	msgs, _ := ListEmailMessages(app.DB, e.ID)
+	links := 0
+	for _, m := range msgs {
+		if m.Kind == "link" {
+			links++
+		}
+	}
+	if links != 2 {
+		t.Errorf("expected 2 link email_messages rows, got %d", links)
+	}
+
+	// A second run sends nothing — everyone already has a link email.
+	app.sendInviteEmails(e.ID)
+	if fake.count() != 2 {
+		t.Errorf("re-invite must skip already-invited participants, got %d", fake.count())
+	}
+
+	// A newly added participant IS picked up by the next run.
+	seedSantaParticipant(t, app.DB, e.ID, "Carol", "carol@test.com", false)
+	app.sendInviteEmails(e.ID)
+	if fake.count() != 3 {
+		t.Errorf("a newly added participant should be invited, got %d", fake.count())
+	}
+}
+
 func TestAdminSantaImportRejectedAfterDraw(t *testing.T) {
 	app := testApp(t)
 	e := seedSantaEvent(t, app.DB)
