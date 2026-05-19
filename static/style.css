@@ -340,7 +340,7 @@ textarea.event-desc-textarea { min-height: 12rem; }
 
 /* Confirmation Page */
 .confirmation-container { max-width: 520px; margin: 3rem auto; text-align: center; }
-.confirmation-icon { width: 56px; height: 56px; border-radius: 50%; background: var(--color-success-bg); color: var(--color-success); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: bold; margin: 0 auto 1rem; }
+.confirmation-icon { width: 56px; height: 56px; border-radius: 50%; background: var(--color-success-bg); color: var(--color-success); display: flex; align-items: center; justify-content: center; font-size: 1.75rem; font-weight: bold; margin: 0 auto 1rem; }
 .confirmation-icon-cancel { background: var(--color-danger-bg); color: var(--color-danger); }
 .confirmation-container h1 { font-size: var(--text-2xl); font-weight: 700; color: var(--color-text); margin-bottom: 0.375rem; }
 .confirmation-subtitle { color: var(--color-text-secondary); margin-bottom: 1.5rem; font-size: var(--text-sm); }
