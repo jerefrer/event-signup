@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -27,6 +29,7 @@ func newMux(app *App) *http.ServeMux {
 	mux.HandleFunc("/admin/santa/draw", app.requireAdmin(app.handleAdminSantaDraw))
 	mux.HandleFunc("/admin/santa/resend", app.requireAdmin(app.handleAdminSantaResend))
 	mux.HandleFunc("/admin/santa/participant/delete", app.requireAdmin(app.handleAdminSantaParticipantDelete))
+	mux.HandleFunc("/admin/santa/import", app.requireAdmin(app.handleAdminSantaImport))
 	mux.HandleFunc("/webhooks/ses", app.handleSESWebhook)
 	return mux
 }
@@ -39,6 +42,27 @@ func adminCookie(app *App) *http.Cookie {
 func postForm(mux http.Handler, path string, data url.Values, cookies ...*http.Cookie) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(data.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	return w
+}
+
+// postMultipart sends a POST with one uploaded file plus extra form fields.
+func postMultipart(mux http.Handler, path, fileName, fileBody string, fields map[string]string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+	var buf bytes.Buffer
+	// Writes target an in-memory bytes.Buffer and cannot fail; errors are discarded.
+	mw := multipart.NewWriter(&buf)
+	for k, v := range fields {
+		_ = mw.WriteField(k, v)
+	}
+	fw, _ := mw.CreateFormFile("file", fileName)
+	_, _ = fw.Write([]byte(fileBody))
+	_ = mw.Close()
+	req := httptest.NewRequest(http.MethodPost, path, &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
 	for _, c := range cookies {
 		req.AddCookie(c)
 	}

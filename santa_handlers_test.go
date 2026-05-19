@@ -501,3 +501,83 @@ func TestAdminSantaRevealProblems(t *testing.T) {
 		t.Error("admin santa page should show the bounced reveal-email status")
 	}
 }
+
+func TestAdminSantaImport(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	mux := newMux(app)
+
+	csv := "email,Nom,Prénom,Langue\nalice@test.com,Dupont,Alice,fr\nbob@test.com,Martin,Bob,en\n,NoEmail,X,fr\n"
+	w := postMultipart(mux, "/admin/santa/import?lang=fr", "list.csv", csv,
+		map[string]string{"event_id": fmt.Sprint(e.ID)}, adminCookie(app))
+	if w.Code != 200 {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+
+	ps, _ := ListSantaParticipants(app.DB, e.ID)
+	if len(ps) != 2 {
+		t.Fatalf("expected 2 imported participants, got %d", len(ps))
+	}
+	alice, err := GetSantaParticipantByEmail(app.DB, e.ID, "alice@test.com")
+	if err != nil {
+		t.Fatalf("alice not imported: %v", err)
+	}
+	if alice.FirstName != "Alice" || alice.LastName != "Dupont" || alice.Lang != "fr" {
+		t.Errorf("alice imported wrong: %+v", alice)
+	}
+	bob, _ := GetSantaParticipantByEmail(app.DB, e.ID, "bob@test.com")
+	if bob.Lang != "en" {
+		t.Errorf("bob lang = %q, want en", bob.Lang)
+	}
+
+	wantMsg := fmt.Sprintf(T("santa_import_done", LangFR), 2, 0, 1)
+	if !strings.Contains(w.Body.String(), wantMsg) {
+		t.Errorf("expected import result message %q in the rendered page", wantMsg)
+	}
+}
+
+func TestAdminSantaImportIdempotent(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	mux := newMux(app)
+	csv := "email,Nom,Prénom\nalice@test.com,Dupont,Alice\n"
+
+	postMultipart(mux, "/admin/santa/import?lang=fr", "list.csv", csv,
+		map[string]string{"event_id": fmt.Sprint(e.ID)}, adminCookie(app))
+	alice, _ := GetSantaParticipantByEmail(app.DB, e.ID, "alice@test.com")
+	if err := SaveSantaWishes(app.DB, alice.Token, "a", "b", "c"); err != nil {
+		t.Fatalf("save wishes: %v", err)
+	}
+
+	// Re-import the same file.
+	postMultipart(mux, "/admin/santa/import?lang=fr", "list.csv", csv,
+		map[string]string{"event_id": fmt.Sprint(e.ID)}, adminCookie(app))
+
+	ps, _ := ListSantaParticipants(app.DB, e.ID)
+	if len(ps) != 1 {
+		t.Fatalf("re-import created a duplicate: %d participants", len(ps))
+	}
+	again, _ := GetSantaParticipantByToken(app.DB, alice.Token)
+	if !again.CompletedAt.Valid || again.WishBuy != "a" {
+		t.Error("re-import must preserve the participant's wishes")
+	}
+}
+
+func TestAdminSantaImportRejectedAfterDraw(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	p1 := seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", true)
+	p2 := seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", true)
+	SaveSantaDraw(app.DB, e.ID, map[int64]int64{p1.ID: p2.ID, p2.ID: p1.ID})
+	mux := newMux(app)
+
+	csv := "email,Prénom\ncarol@test.com,Carol\n"
+	w := postMultipart(mux, "/admin/santa/import?lang=fr", "list.csv", csv,
+		map[string]string{"event_id": fmt.Sprint(e.ID)}, adminCookie(app))
+	if !strings.Contains(w.Body.String(), T("santa_import_closed", LangFR)) {
+		t.Error("import should be refused once the draw has happened")
+	}
+	if _, err := GetSantaParticipantByEmail(app.DB, e.ID, "carol@test.com"); err == nil {
+		t.Error("no participant should have been imported after the draw")
+	}
+}

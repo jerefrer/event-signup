@@ -1297,6 +1297,62 @@ func (app *App) handleAdminSantaParticipantDelete(w http.ResponseWriter, r *http
 	http.Redirect(w, r, fmt.Sprintf("/admin/event/santa?id=%d&lang=%s", eventID, lang), http.StatusSeeOther)
 }
 
+func (app *App) handleAdminSantaImport(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+		return
+	}
+	lang := LangFromRequest(r)
+	eventID, _ := strconv.ParseInt(r.FormValue("event_id"), 10, 64)
+	event, err := GetEvent(app.DB, eventID)
+	if err != nil || event.EventType != "secret_santa" {
+		http.NotFound(w, r)
+		return
+	}
+	renderMsg := func(errMsg, okMsg string) {
+		pd := app.newPageData(r, app.santaAdminData(event))
+		pd.Error = errMsg
+		pd.Success = okMsg
+		app.render(w, r, "admin_santa.html", pd)
+	}
+	if event.SantaDrawnAt.Valid {
+		renderMsg(T("santa_import_closed", lang), "")
+		return
+	}
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		renderMsg(T("santa_import_no_file", lang), "")
+		return
+	}
+	defer file.Close()
+
+	rows, skipped, err := parseSantaCSV(file)
+	if errors.Is(err, errSantaCSVNoEmail) {
+		renderMsg(T("santa_import_no_email_col", lang), "")
+		return
+	}
+	if err != nil {
+		log.Printf("santa import parse error: %v", err)
+		renderMsg(T("santa_import_bad_file", lang), "")
+		return
+	}
+
+	created, updated := 0, 0
+	for _, row := range rows {
+		_, existsErr := GetSantaParticipantByEmail(app.DB, event.ID, row.Email)
+		if _, err := UpsertSantaParticipant(app.DB, event.ID, row.FirstName, row.LastName, row.Email, row.Lang); err != nil {
+			log.Printf("santa import upsert error (%s): %v", row.Email, err)
+			continue
+		}
+		if existsErr == nil {
+			updated++
+		} else {
+			created++
+		}
+	}
+	renderMsg("", fmt.Sprintf(T("santa_import_done", lang), created, updated, skipped))
+}
+
 // ---- Secret Santa: CSV import parsing ----
 
 // santaCSVRow is one parsed, validated participant from an imported CSV.

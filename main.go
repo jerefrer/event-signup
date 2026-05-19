@@ -148,6 +148,7 @@ func main() {
 	mux.HandleFunc("/admin/santa/draw", app.requireAdmin(app.handleAdminSantaDraw))
 	mux.HandleFunc("/admin/santa/resend", app.requireAdmin(app.handleAdminSantaResend))
 	mux.HandleFunc("/admin/santa/participant/delete", app.requireAdmin(app.handleAdminSantaParticipantDelete))
+	mux.HandleFunc("/admin/santa/import", app.requireAdmin(app.handleAdminSantaImport))
 
 	// Root redirect
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
