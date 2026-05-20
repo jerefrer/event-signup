@@ -112,7 +112,8 @@ main.container { flex: 1; padding-top: 2rem; padding-bottom: 3rem; }
 .btn-secondary:hover { background: var(--color-bg); border-color: var(--color-border-focus); }
 .btn-danger { background: var(--color-danger); color: #fff; }
 .btn-danger:hover { background: var(--color-danger-dark); }
-.btn-sm { padding: 0.3125rem 0.625rem; font-size: var(--text-xs); }
+/* min-height keeps small buttons the same height whether or not they contain a count-badge (1.5rem tall) */
+.btn-sm { padding: 0.3125rem 0.625rem; font-size: var(--text-xs); min-height: 2.25rem; }
 .btn-block { display: flex; width: 100%; }
 
 /* Forms */
