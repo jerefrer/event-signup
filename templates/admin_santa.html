@@ -34,7 +34,7 @@
     <div class="panel-body">
         <p style="font-size:1.1rem;">
             <strong>{{$total}}</strong> {{t "santa_admin_participants"}} ·
-            <strong>{{$completed}}</strong> {{t "santa_admin_completed"}}
+            <strong class="text-success">{{$completed}}</strong> {{t "santa_admin_completed"}}
         </p>
 
         {{if not $drawn}}
@@ -70,9 +70,15 @@
     <h2 class="panel-title">{{t "santa_admin_section_draw"}}</h2>
     <div class="panel-body">
         {{if $drawn}}
-        <p>{{t "santa_admin_drawn"}} {{$event.SantaDrawnAt.String}}</p>
-        <p style="margin-top:0.25rem;"><strong>{{$sentCount}}</strong> / {{$completed}} {{t "santa_admin_emails_sent"}}{{if gt $revealProblems 0}} · <span class="badge badge-danger">{{$revealProblems}} {{t "santa_admin_email_problems"}}</span>{{end}}</p>
-        <form method="POST" action="/admin/santa/resend?lang={{lang}}" class="inline-form" style="margin-top:0.5rem;">
+        <div class="draw-done">
+            <div class="draw-done-icon" aria-hidden="true"><i class="fa-solid fa-check"></i></div>
+            <div class="draw-done-body">
+                <h3 class="draw-done-title">{{t "santa_admin_drawn_title"}}</h3>
+                <p class="draw-done-meta">{{formatDateTimeStr $event.SantaDrawnAt.String}}</p>
+                <p class="draw-done-stat"><strong>{{$sentCount}}</strong> / {{$completed}} {{t "santa_admin_emails_sent"}}{{if gt $revealProblems 0}} · <span class="badge badge-danger">{{$revealProblems}} {{t "santa_admin_email_problems"}}</span>{{end}}</p>
+            </div>
+        </div>
+        <form method="POST" action="/admin/santa/resend?lang={{lang}}" class="inline-form" style="margin-top:1.25rem;">
             <input type="hidden" name="event_id" value="{{$event.ID}}">
             <button type="submit" class="btn btn-secondary"><i class="fa-solid fa-paper-plane"></i> {{t "santa_admin_resend_btn"}}</button>
         </form>

@@ -369,6 +369,17 @@ textarea.event-desc-textarea { min-height: 12rem; }
 /* Panel expanded full-bleed — breaks out of the centered container so a wide data table can use most of the viewport. The +var(--spacing) matches the regular outer padding the rest of the page already uses, so the panel never touches the screen edges. */
 .panel.is-expanded { margin-left: calc((100vw - 100%) / -2 + var(--spacing)); margin-right: calc((100vw - 100%) / -2 + var(--spacing)); max-width: none; }
 
+/* Secret Santa — success callout shown when the draw is done. Green card + check icon to signal completion at a glance. */
+.draw-done { display: flex; gap: 1rem; align-items: center; padding: 1.25rem; background: var(--color-success-bg); border: 1px solid var(--color-success); border-radius: var(--radius-lg); }
+.draw-done-icon { flex-shrink: 0; width: 3rem; height: 3rem; border-radius: 50%; background: var(--color-success); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+.draw-done-body { flex: 1; }
+.draw-done-title { font-size: var(--text-lg); font-weight: 700; color: var(--color-success-dark); margin: 0; }
+.draw-done-meta { color: var(--color-text-secondary); font-size: var(--text-sm); margin: 0.125rem 0 0; }
+.draw-done-stat { color: var(--color-text); font-size: var(--text-base); margin: 0.625rem 0 0; }
+
+/* Inline accent colour — used to highlight a positive count next to neutral text. */
+.text-success { color: var(--color-success-dark); }
+
 /* Wish columns in the admin santa table — cap width so long FR headers wrap onto multiple lines instead of forcing horizontal scroll */
 .data-table .col-wish { max-width: 16rem; min-width: 8rem; white-space: normal; word-break: break-word; overflow-wrap: anywhere; }
 

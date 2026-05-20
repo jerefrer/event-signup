@@ -195,6 +195,7 @@ var translations = map[string]Translations{
 	"santa_admin_hide_btn":        {"fr": "Masquer la liste", "en": "Hide the list"},
 	"santa_admin_resend_btn":      {"fr": "Renvoyer les emails", "en": "Resend the emails"},
 	"santa_admin_drawn":           {"fr": "Tirage effectué le", "en": "Draw completed on"},
+	"santa_admin_drawn_title":     {"fr": "Tirage effectué", "en": "Draw completed"},
 	"santa_admin_too_few":         {"fr": "Il faut au moins 2 listes complétées pour lancer le tirage.", "en": "At least 2 completed lists are required to run the draw."},
 	"santa_admin_pending_warning": {"fr": "%d personnes n'ont pas complété leur liste, elles seront donc exclues du tirage.", "en": "%d people have not completed their list, so they will be excluded from the draw."},
 	"santa_admin_draw_done":       {"fr": "Tirage effectué, envoi des emails en cours.", "en": "Draw completed, sending emails."},

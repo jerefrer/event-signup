@@ -130,6 +130,21 @@ func (app *App) buildFuncs(lang string) template.FuncMap {
 		}
 		return t.Format("Jan 2, 2006 3:04 PM")
 	}
+	// formatDateTimeStr parses a SQLite CURRENT_TIMESTAMP string ("YYYY-MM-DD HH:MM:SS")
+	// and formats it for display. Falls back to the raw value on parse failure.
+	funcs["formatDateTimeStr"] = func(s string) string {
+		if s == "" {
+			return ""
+		}
+		t, err := time.Parse("2006-01-02 15:04:05", s)
+		if err != nil {
+			return s
+		}
+		if lang == LangFR {
+			return t.Format("02/01/2006 à 15:04")
+		}
+		return t.Format("Jan 2, 2006 3:04 PM")
+	}
 	funcs["add"] = func(a, b int) int { return a + b }
 	funcs["sub"] = func(a, b int) int { return a - b }
 	funcs["json"] = func(v any) template.JS {
