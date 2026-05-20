@@ -182,7 +182,7 @@ var translations = map[string]Translations{
 	"santa_wishes_required": {"fr": "Les trois souhaits sont obligatoires.", "en": "All three wishes are required."},
 	"santa_wishes_save":     {"fr": "Enregistrer ma liste", "en": "Save my list"},
 	"santa_wishes_saved_title": {"fr": "Votre liste a été enregistrée", "en": "Your list has been saved"},
-	"santa_wishes_saved_body":  {"fr": "Revenez la modifier à tout moment avec votre lien personnel.", "en": "Come back to edit it any time with your personal link."},
+	"santa_wishes_saved_body":  {"fr": "Revenez la modifier à tout moment grâce au lien personnel que vous avez reçu par email.", "en": "Come back to edit it any time using the personal link you received by email."},
 	"santa_wishes_edit_again":  {"fr": "Modifier ma liste", "en": "Edit my list"},
 
 	// Secret Santa — admin
