@@ -172,7 +172,6 @@ var translations = map[string]Translations{
 	"santa_invalid_link":    {"fr": "Ce lien est invalide ou a expiré.", "en": "This link is invalid or has expired."},
 
 	// Secret Santa — wishes form
-	"santa_edit_greeting":   {"fr": "Bonjour %s", "en": "Hello %s"},
 	"santa_wishes_title":    {"fr": "Ma liste de souhaits", "en": "My wish list"},
 	"santa_wish_buy":        {"fr": "Quelque chose qui peut être acheté (moins de 10 €)", "en": "Something that can be bought (under €10)"},
 	"santa_wish_buy_hint":   {"fr": "Pour ceux qui n'ont pas le temps — un stylo, des chaussettes, du chocolat…", "en": "For those short on time — a pen, socks, chocolate…"},

@@ -13,11 +13,11 @@
         <span class="event-meta-item">&#x1F4C5; {{formatDate $event.EventDate}}</span>
         {{if $event.EventTime}}<span class="event-meta-item">&#x1F552; {{formatTime $event.EventTime}}</span>{{end}}
     </div>
+    {{if $p}}<p class="participant-name">{{$p.FirstName}} {{$p.LastName}}</p>{{end}}
 </div>
 {{if $closed}}
 <div class="card"><div class="card-body"><p>{{t "santa_closed"}}</p></div></div>
 {{else}}
-<p class="santa-greeting">{{printf (t "santa_edit_greeting") $p.FirstName}} <span aria-hidden="true">🎁</span></p>
 <form method="POST" action="/santa/edit?lang={{lang}}" class="signup-unified">
     <input type="hidden" name="token" value="{{$p.Token}}">
     <section class="panel">
