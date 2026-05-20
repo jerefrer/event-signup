@@ -87,7 +87,7 @@ func renderSantaLinkEmail(lang string, p SantaParticipant, event Event, editURL 
 	data := santaLinkEmailData{
 		emailCommon: emailCommon{
 			Lang:    lang,
-			Title:   T("santa_email_link_title", lang),
+			Title:   eventTitle,
 			LogoURL: logoURLFromBase(baseFromURL(editURL)),
 		},
 		Greeting:   fmt.Sprintf(T("santa_email_greeting", lang), p.FirstName),
@@ -105,7 +105,7 @@ func renderSantaRevealEmail(lang string, giver, receiver SantaParticipant, event
 	data := santaRevealEmailData{
 		emailCommon: emailCommon{
 			Lang:    lang,
-			Title:   T("santa_email_reveal_title", lang),
+			Title:   eventTitle,
 			LogoURL: logoURLFromBase(baseURL),
 		},
 		Greeting:      fmt.Sprintf(T("santa_email_greeting", lang), giver.FirstName),
