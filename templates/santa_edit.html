@@ -17,13 +17,12 @@
 {{if $closed}}
 <div class="card"><div class="card-body"><p>{{t "santa_closed"}}</p></div></div>
 {{else}}
+<p class="santa-greeting">{{printf (t "santa_edit_greeting") $p.FirstName}} <span aria-hidden="true">🎁</span></p>
 <form method="POST" action="/santa/edit?lang={{lang}}" class="signup-unified">
     <input type="hidden" name="token" value="{{$p.Token}}">
     <section class="panel">
         <h2 class="panel-title">{{t "santa_wishes_title"}}</h2>
         <div class="panel-body">
-            <p style="margin-bottom:1rem;"><strong>{{$p.FirstName}} {{$p.LastName}}</strong></p>
-            <p class="santa-disclaimer">{{t "santa_disclaimer"}}</p>
             <div class="form-group">
                 <label for="wish_buy">{{t "santa_wish_buy"}} *</label>
                 <p class="form-hint">{{t "santa_wish_buy_hint"}}</p>
@@ -41,6 +40,7 @@
             </div>
         </div>
     </section>
+    <p class="santa-disclaimer" style="margin-top:1rem;">{{t "santa_disclaimer"}}</p>
     <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-check"></i> {{t "santa_wishes_save"}}</button>
 </form>
 <script>
