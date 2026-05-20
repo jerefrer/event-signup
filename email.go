@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"net/url"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -29,22 +30,54 @@ func (LogSender) Send(ctx context.Context, to, subject, htmlBody string) (string
 	return "", nil
 }
 
+// Fields shared by every email — used by email_layout.html to render the
+// outer shell (HTML lang attribute, logo, title bar). LogoURL is an absolute
+// URL the email client can fetch directly.
+type emailCommon struct {
+	Lang, Title, LogoURL string
+}
+
 type santaLinkEmailData struct {
-	Title, Greeting, Intro, ButtonText, EditURL, EventTitle, Disclaimer string
+	emailCommon
+	Greeting, Intro, ButtonText, EditURL, EventTitle, Disclaimer string
 }
 
 type santaRevealEmailData struct {
-	Title, Greeting, Intro, ReceiverName, WishesIntro string
-	WishBuyLabel, WishMakeLabel, WishFreeLabel        string
-	WishBuy, WishMake, WishFree                       string
-	EventURL, EventLinkText                           string
+	emailCommon
+	Greeting, Intro, ReceiverName, WishesIntro string
+	WishBuyLabel, WishMakeLabel, WishFreeLabel string
+	WishBuy, WishMake, WishFree                string
+	EventURL, EventLinkText                    string
+}
+
+// logoURLFromBase returns the absolute URL of the static logo for a given
+// base URL ("https://evenements.chanteloube.fr" → ".../static/logo.png").
+func logoURLFromBase(baseURL string) string {
+	if baseURL == "" {
+		return ""
+	}
+	return baseURL + "/static/logo.png"
+}
+
+// baseFromURL extracts scheme://host from any absolute URL — used to derive
+// the logo URL when only an editURL is available.
+func baseFromURL(s string) string {
+	u, err := url.Parse(s)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return ""
+	}
+	return u.Scheme + "://" + u.Host
 }
 
 // renderSantaLinkEmail builds the magic-link email in the given language.
 func renderSantaLinkEmail(lang string, p SantaParticipant, event Event, editURL string) (subject, html string) {
 	eventTitle := Localized(event.TitleFR, event.TitleEN, lang)
 	data := santaLinkEmailData{
-		Title:      T("santa_email_link_title", lang),
+		emailCommon: emailCommon{
+			Lang:    lang,
+			Title:   T("santa_email_link_title", lang),
+			LogoURL: logoURLFromBase(baseFromURL(editURL)),
+		},
 		Greeting:   fmt.Sprintf(T("santa_email_greeting", lang), p.FirstName),
 		Intro:      T("santa_email_link_intro", lang),
 		ButtonText: T("santa_email_link_button", lang),
@@ -59,7 +92,11 @@ func renderSantaLinkEmail(lang string, p SantaParticipant, event Event, editURL 
 func renderSantaRevealEmail(lang string, giver, receiver SantaParticipant, event Event, baseURL string) (subject, html string) {
 	eventTitle := Localized(event.TitleFR, event.TitleEN, lang)
 	data := santaRevealEmailData{
-		Title:         T("santa_email_reveal_title", lang),
+		emailCommon: emailCommon{
+			Lang:    lang,
+			Title:   T("santa_email_reveal_title", lang),
+			LogoURL: logoURLFromBase(baseURL),
+		},
 		Greeting:      fmt.Sprintf(T("santa_email_greeting", lang), giver.FirstName),
 		Intro:         T("santa_email_reveal_intro", lang),
 		ReceiverName:  receiver.FirstName + " " + receiver.LastName,
@@ -76,12 +113,13 @@ func renderSantaRevealEmail(lang string, giver, receiver SantaParticipant, event
 	return T("santa_email_reveal_subject", lang) + " " + eventTitle, renderEmailTemplate("email_santa_reveal.html", data)
 }
 
-// renderEmailTemplate executes an embedded email template (no layout). The
-// template name must equal the file's base name as registered by ParseFS.
-// Returns "" on failure (logged); callers that send email MUST treat an empty
-// result as a hard error and abort the send rather than deliver a blank body.
+// renderEmailTemplate executes an embedded email template wrapped in the
+// shared email_layout (logo + title bar + body shell). The template name must
+// equal the file's base name as registered by ParseFS. Returns "" on failure
+// (logged); callers that send email MUST treat an empty result as a hard
+// error and abort the send rather than deliver a blank body.
 func renderEmailTemplate(name string, data any) string {
-	tmpl, err := template.ParseFS(templatesFS, "templates/"+name)
+	tmpl, err := template.ParseFS(templatesFS, "templates/email_layout.html", "templates/"+name)
 	if err != nil {
 		log.Printf("email template parse error (%s): %v", name, err)
 		return ""

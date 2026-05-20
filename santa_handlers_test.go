@@ -764,6 +764,13 @@ func TestDevEmailPreviews(t *testing.T) {
 	if !strings.Contains(w.Body.String(), latest.Token) {
 		t.Error("santa-link preview should contain the latest participant's token")
 	}
+	// The shared email layout (yellow header + logo) must be in place.
+	if !strings.Contains(w.Body.String(), "/static/logo.png") {
+		t.Error("email layout should embed the absolute logo URL")
+	}
+	if !strings.Contains(w.Body.String(), "#fff5b8") {
+		t.Error("email layout should render the yellow header band")
+	}
 
 	// santa-reveal preview uses two completed participants from the same event.
 	w = getRequest(mux, "/dev/emails/santa-reveal?lang=fr", adminCookie(app))
