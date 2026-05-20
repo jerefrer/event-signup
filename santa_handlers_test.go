@@ -697,3 +697,36 @@ func TestAdminSantaInviteRejectedAfterDraw(t *testing.T) {
 		t.Error("no invitation email should be sent after the draw")
 	}
 }
+
+func TestSantaDisclaimerVisibleEverywhere(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	p := seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", false)
+	mux := newMux(app)
+	// Unique apostrophe-free fragment of santa_disclaimer (FR); the full string
+	// contains apostrophes that html/template escapes to &#39; in the page body,
+	// so a raw-string Contains on the full T() value would never match.
+	disc := "exercice de DON, pas de réception"
+
+	// 1) Public registration page.
+	w := getRequest(mux, "/e/"+e.Slug+"?lang=fr")
+	if !strings.Contains(w.Body.String(), disc) {
+		t.Error("disclaimer should appear on the public registration page")
+	}
+
+	// 2) Wishes-editing page (the universal touchpoint).
+	w = getRequest(mux, "/santa/edit?token="+p.Token+"&lang=fr")
+	if !strings.Contains(w.Body.String(), disc) {
+		t.Error("disclaimer should appear on the wishes-editing page")
+	}
+
+	// 3) Magic-link / invitation email body.
+	app.sendInviteEmails(e.ID)
+	fake := app.Email.(*fakeEmailSender)
+	if fake.count() == 0 {
+		t.Fatal("expected the invitation email to be sent")
+	}
+	if !strings.Contains(fake.sent[0].HTML, disc) {
+		t.Error("disclaimer should appear in the invitation email body")
+	}
+}

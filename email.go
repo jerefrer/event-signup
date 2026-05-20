@@ -30,7 +30,7 @@ func (LogSender) Send(ctx context.Context, to, subject, htmlBody string) (string
 }
 
 type santaLinkEmailData struct {
-	Title, Greeting, Intro, ButtonText, EditURL, EventTitle string
+	Title, Greeting, Intro, ButtonText, EditURL, EventTitle, Disclaimer string
 }
 
 type santaRevealEmailData struct {
@@ -50,6 +50,7 @@ func renderSantaLinkEmail(lang string, p SantaParticipant, event Event, editURL 
 		ButtonText: T("santa_email_link_button", lang),
 		EditURL:    editURL,
 		EventTitle: eventTitle,
+		Disclaimer: T("santa_disclaimer", lang),
 	}
 	return T("santa_email_link_subject", lang) + " " + eventTitle, renderEmailTemplate("email_santa_link.html", data)
 }
