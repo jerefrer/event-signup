@@ -3,6 +3,7 @@
 {{$event := index $data "Event"}}
 {{$p := index $data "Participant"}}
 {{$closed := index $data "Closed"}}
+{{$saved := index $data "Saved"}}
 
 {{if not $event}}
 <p><a href="/">{{t "back"}}</a></p>
@@ -17,6 +18,13 @@
 </div>
 {{if $closed}}
 <div class="card"><div class="card-body"><p>{{t "santa_closed"}}</p></div></div>
+{{else if $saved}}
+<div class="registered-card card">
+    <div class="confirmation-icon" aria-hidden="true"><i class="fa-solid fa-check"></i></div>
+    <h2>{{t "santa_wishes_saved_title"}}</h2>
+    <p>{{t "santa_wishes_saved_body"}}</p>
+    <a href="/santa/edit?token={{$p.Token}}&lang={{lang}}" class="btn btn-secondary"><i class="fa-solid fa-pencil"></i> {{t "santa_wishes_edit_again"}}</a>
+</div>
 {{else}}
 <form method="POST" action="/santa/edit?lang={{lang}}" class="signup-unified">
     <input type="hidden" name="token" value="{{$p.Token}}">
@@ -43,6 +51,8 @@
     <p class="santa-disclaimer" style="margin-top:1rem;">{{t "santa_disclaimer"}}</p>
     <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-check"></i> {{t "santa_wishes_save"}}</button>
 </form>
+{{end}}
+{{if $p}}
 <script>
 (function() {
     try { localStorage.setItem('santa_' + {{json $event.Slug}}, {{json $p.Token}}); } catch(e) {}

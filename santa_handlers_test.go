@@ -100,6 +100,14 @@ func TestSantaEditFlow(t *testing.T) {
 	if !done.CompletedAt.Valid || done.WishBuy != "un stylo" {
 		t.Errorf("wishes not saved: %+v", done)
 	}
+	// After saving the page is a confirmation card, not the wishes form
+	// (so the user sees a clear "saved" state, not a re-filled form).
+	if !strings.Contains(w3.Body.String(), T("santa_wishes_saved_title", LangFR)) {
+		t.Error("expected the saved-confirmation title after successful POST")
+	}
+	if strings.Contains(w3.Body.String(), `name="wish_buy"`) {
+		t.Error("the wishes form should not be re-shown after a successful save")
+	}
 
 	p2 := seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", false)
 	w4 := postForm(mux, "/santa/edit?lang=fr", url.Values{

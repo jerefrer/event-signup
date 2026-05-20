@@ -1162,8 +1162,7 @@ func (app *App) handleSantaEdit(w http.ResponseWriter, r *http.Request) {
 		if updated, err := GetSantaParticipantByToken(app.DB, p.Token); err == nil {
 			p = updated
 		}
-		pd := app.newPageData(r, map[string]any{"Event": event, "Participant": p})
-		pd.Success = T("santa_wishes_saved", lang)
+		pd := app.newPageData(r, map[string]any{"Event": event, "Participant": p, "Saved": true})
 		app.render(w, r, "santa_edit.html", pd)
 		return
 	}
