@@ -765,7 +765,7 @@ func TestDevEmailPreviews(t *testing.T) {
 		t.Error("santa-link preview should contain the latest participant's token")
 	}
 	// The shared email layout (yellow header + logo) must be in place.
-	if !strings.Contains(w.Body.String(), "/static/logo.png") {
+	if !strings.Contains(w.Body.String(), "/static/logo-email.png") {
 		t.Error("email layout should embed the absolute logo URL")
 	}
 	if !strings.Contains(w.Body.String(), "#fff5b8") {

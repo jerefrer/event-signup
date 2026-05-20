@@ -163,7 +163,7 @@ var translations = map[string]Translations{
 	// Secret Santa — public
 	"santa_register_title":  {"fr": "Inscription au Secret Santa", "en": "Secret Santa Registration"},
 	"santa_register_intro":  {"fr": "Inscrivez-vous pour recevoir par email votre lien personnel.", "en": "Sign up to receive your personal link by email."},
-	"santa_disclaimer":      {"fr": "Nous ne pouvons pas garantir que vous recevrez quelque chose en retour. Nous espérons que ceux qui souhaitent participer le feront pleinement, mais souvenez-vous : c'est un exercice de DON, pas de réception — et en donnant, on reçoit naturellement !", "en": "We cannot guarantee you will receive anything in return. We hope those who wish to participate will do so fully, but please remember this is an exercise in GIVING, not receiving — and in giving, we will naturally receive!"},
+	"santa_disclaimer":      {"fr": "Nous ne pouvons pas garantir que vous recevrez quelque chose en retour. Nous espérons que ceux qui souhaitent participer le feront pleinement, mais souvenez-vous : c'est un exercice de DON, pas de réception — et en donnant, on reçoit naturellement !", "en": "We cannot guarantee you will receive anything in return. We hope those who wish to participate will do so fully, but please remember this is an exercise in GIVING, not receiving — and in giving, we will naturally receive!"},
 	"santa_register_btn":    {"fr": "Recevoir mon lien", "en": "Send me my link"},
 	"santa_link_sent":       {"fr": "Un email contenant votre lien personnel vous a été envoyé. Cliquez dessus pour remplir vos souhaits.", "en": "An email with your personal link has been sent. Click it to fill in your wishes."},
 	"santa_continue_btn":    {"fr": "Continuer ma liste", "en": "Continue my list"},
@@ -238,11 +238,11 @@ var translations = map[string]Translations{
 	"santa_email_link_subject":   {"fr": "Votre lien pour", "en": "Your link for"},
 	"santa_email_link_title":     {"fr": "Votre Secret Santa", "en": "Your Secret Santa"},
 	"santa_email_link_intro":     {"fr": "Voici votre lien personnel pour composer votre liste de souhaits. Cliquez sur le bouton ci-dessous.", "en": "Here is your personal link to put together your wish list. Click the button below."},
-	"santa_email_link_button":    {"fr": "Remplir ma liste", "en": "Fill in my list"},
+	"santa_email_link_button":    {"fr": "✏️ Remplir ma liste", "en": "✏️ Fill in my list"},
 	"santa_email_reveal_subject": {"fr": "Votre tirage Secret Santa pour", "en": "Your Secret Santa draw for"},
-	"santa_email_reveal_title":   {"fr": "Le tirage est fait !", "en": "The draw is done!"},
-	"santa_email_reveal_intro":   {"fr": "Vous offrez un cadeau à :", "en": "You are giving a gift to:"},
-	"santa_email_reveal_wishes":  {"fr": "Voici ses souhaits :", "en": "Here are their wishes:"},
+	"santa_email_reveal_title":   {"fr": "Le tirage est fait !", "en": "The draw is done!"},
+	"santa_email_reveal_intro":   {"fr": "Vous offrez un cadeau à :", "en": "You are giving a gift to:"},
+	"santa_email_reveal_wishes":  {"fr": "Voici ses souhaits :", "en": "Here are their wishes:"},
 	"santa_email_reveal_link":    {"fr": "Voir l'événement", "en": "View the event"},
 
 	// Public RSVP

@@ -50,13 +50,25 @@ type santaRevealEmailData struct {
 	EventURL, EventLinkText                    string
 }
 
-// logoURLFromBase returns the absolute URL of the static logo for a given
-// base URL ("https://evenements.chanteloube.fr" → ".../static/logo.png").
+// logoURLFromBase returns the absolute URL of the email logo (the red
+// Dharmachakra) for a given base URL. The web UI uses a different logo at
+// /static/logo.png — the email-specific one lives at /static/logo-email.png.
 func logoURLFromBase(baseURL string) string {
 	if baseURL == "" {
 		return ""
 	}
-	return baseURL + "/static/logo.png"
+	return baseURL + "/static/logo-email.png"
+}
+
+// emailLabel formats a wish-list label for the reveal email — appends a
+// colon in English ("Label:") and a non-breaking-space + colon in French
+// ("Label :") so French typography is respected and the colon never wraps
+// onto its own line.
+func emailLabel(label, lang string) string {
+	if lang == LangFR {
+		return label + "\u00a0:"
+	}
+	return label + ":"
 }
 
 // baseFromURL extracts scheme://host from any absolute URL — used to derive
@@ -101,9 +113,9 @@ func renderSantaRevealEmail(lang string, giver, receiver SantaParticipant, event
 		Intro:         T("santa_email_reveal_intro", lang),
 		ReceiverName:  receiver.FirstName + " " + receiver.LastName,
 		WishesIntro:   T("santa_email_reveal_wishes", lang),
-		WishBuyLabel:  T("santa_wish_buy", lang),
-		WishMakeLabel: T("santa_wish_make", lang),
-		WishFreeLabel: T("santa_wish_free", lang),
+		WishBuyLabel:  emailLabel(T("santa_wish_buy", lang), lang),
+		WishMakeLabel: emailLabel(T("santa_wish_make", lang), lang),
+		WishFreeLabel: emailLabel(T("santa_wish_free", lang), lang),
 		WishBuy:       receiver.WishBuy,
 		WishMake:      receiver.WishMake,
 		WishFree:      receiver.WishFree,

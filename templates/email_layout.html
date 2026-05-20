@@ -8,29 +8,45 @@
     <title>{{.Title}}</title>
 </head>
 <body style="background-color:#f6f6f6;margin:0;padding:0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color-scheme:light only;">
-<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#f6f6f6;padding:20px 0;">
+
+<!-- Full-width yellow band. The 600px white title card sits inside this band at the bottom, so its top portion overlaps the yellow and its bottom sits on grey, the way the Chanteloube emails look. -->
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#fff5b8;">
     <tr>
         <td align="center">
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;width:100%;box-shadow:1px 4px 11px 0 rgba(0,0,0,0.15);">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;width:100%;">
                 <tr>
-                    <td align="center" style="background-color:#fff5b8;padding:30px 0;">
+                    <td align="center" style="padding:30px 0;">
                         <img src="{{.LogoURL}}" alt="Logo" width="100" style="width:100px;max-width:100px;height:auto;display:inline-block;border:0;outline:none;text-decoration:none;">
                     </td>
                 </tr>
                 <tr>
-                    <td style="background-color:#ffffff;padding:40px 15px 10px;">
+                    <td style="background-color:#ffffff;padding:40px 15px 10px;box-shadow:1px 4px 11px 0 rgba(0,0,0,0.15);">
                         <div style="color:#212b35;font-weight:bold;font-size:24px;line-height:1.3;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">{{.Title}}</div>
-                    </td>
-                </tr>
-                <tr>
-                    <td style="background-color:#ffffff;padding:10px 15px 30px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#000000;font-size:16px;line-height:24px;">
-                        {{template "email_content" .}}
                     </td>
                 </tr>
             </table>
         </td>
     </tr>
 </table>
+
+<!-- Grey area below the yellow band. The white content card continues here, so the card visually stands out as a single panel that emerged from the yellow strip. -->
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#f6f6f6;">
+    <tr>
+        <td align="center">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;width:100%;">
+                <tr>
+                    <td style="background-color:#ffffff;padding:10px 15px 30px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#000000;font-size:16px;line-height:24px;box-shadow:1px 4px 11px 0 rgba(0,0,0,0.15);">
+                        {{template "email_content" .}}
+                    </td>
+                </tr>
+                <tr>
+                    <td height="20" style="line-height:20px;font-size:0;">&nbsp;</td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
 </body>
 </html>
 {{end}}
