@@ -363,6 +363,13 @@ textarea.event-desc-textarea { min-height: 12rem; }
 /* Secret Santa — disclaimer callout, shown on the public registration and wishes pages */
 .santa-disclaimer { padding: 0.875rem 1rem; margin: 0 0 1.25rem; background: var(--color-warning-bg); border: 1px solid #FDE68A; border-radius: var(--radius-lg); font-style: italic; color: var(--color-text-secondary); font-size: var(--text-sm); line-height: 1.5; }
 
+/* Dropzone — used on the admin santa page for CSV uploads, click or drag-and-drop */
+.dropzone { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; padding: 1.5rem 1rem; min-height: 6rem; border: 2px dashed var(--color-border); border-radius: var(--radius-lg); background: var(--color-bg); color: var(--color-text-secondary); font-size: var(--text-sm); text-align: center; cursor: pointer; transition: border-color var(--transition), background var(--transition), color var(--transition); }
+.dropzone:hover, .dropzone.dragover { border-color: var(--color-primary); background: var(--color-primary-bg); color: var(--color-text); }
+.dropzone i { font-size: 1.75rem; color: var(--color-primary); }
+.dropzone input[type="file"] { display: none; }
+.dropzone .form-hint { margin: 0; }
+
 /* Empty States */
 .empty-state { text-align: center; padding: 3rem 1rem; color: var(--color-text-muted); font-size: var(--text-base); }
 .empty-state-sm { padding: 1rem; color: var(--color-text-muted); font-size: var(--text-sm); }

@@ -663,8 +663,8 @@ func TestAdminSantaPageShowsImportAndInvite(t *testing.T) {
 		t.Fatalf("status = %d, want 200", w.Code)
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, T("santa_import_btn", LangFR)) {
-		t.Error("admin santa page should show the CSV import button before the draw")
+	if !strings.Contains(body, T("santa_import_drop_hint", LangFR)) {
+		t.Error("admin santa page should show the CSV drop zone before the draw")
 	}
 	if !strings.Contains(body, T("santa_invite_btn", LangFR)) {
 		t.Error("admin santa page should show the send-invitations button before the draw")
