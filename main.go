@@ -68,6 +68,13 @@ func main() {
 		}
 	}
 
+	// LogSender writes to stdout — no remote rate limit to respect, so fire
+	// instantly. Speeds up local dev when sending invites to a long list.
+	var emailDelay time.Duration
+	if emailFrom != "" {
+		emailDelay = time.Second / time.Duration(emailRate)
+	}
+
 	db, err := InitDB(dbPath)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
@@ -79,7 +86,7 @@ func main() {
 		AdminPassword:  adminPassword,
 		AnthropicKey:   anthropicKey,
 		Email:          emailSender,
-		EmailSendDelay: time.Second / time.Duration(emailRate),
+		EmailSendDelay: emailDelay,
 		AsyncEmail:     true,
 	}
 
