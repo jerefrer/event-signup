@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"embed"
-	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
@@ -43,11 +42,6 @@ func main() {
 		port = "8090"
 	}
 
-	baseURL := os.Getenv("EVENT_SIGNUP_BASE_URL")
-	if baseURL == "" {
-		baseURL = fmt.Sprintf("http://localhost:%s", port)
-	}
-
 	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
 
 	emailFrom := os.Getenv("EVENT_SIGNUP_EMAIL_FROM")
@@ -83,7 +77,6 @@ func main() {
 	app := &App{
 		DB:             db,
 		AdminPassword:  adminPassword,
-		BaseURL:        baseURL,
 		AnthropicKey:   anthropicKey,
 		Email:          emailSender,
 		EmailSendDelay: time.Second / time.Duration(emailRate),

@@ -31,7 +31,6 @@ func testApp(t *testing.T) *App {
 	return &App{
 		DB:            db,
 		AdminPassword: "testpass",
-		BaseURL:       "http://localhost:8090",
 		Email:         &fakeEmailSender{},
 		SNSSkipVerify: true,
 		// EmailSendDelay: 0 and AsyncEmail: false (zero values) — reveal emails

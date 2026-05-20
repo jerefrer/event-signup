@@ -168,7 +168,7 @@ func TestSendRevealEmails(t *testing.T) {
 	p3 := seedSantaParticipant(t, app.DB, e.ID, "Carol", "carol@test.com", true)
 	SaveSantaDraw(app.DB, e.ID, map[int64]int64{p1.ID: p2.ID, p2.ID: p3.ID, p3.ID: p1.ID})
 
-	app.sendRevealEmails(e.ID)
+	app.sendRevealEmails(e.ID, "http://localhost:8090")
 
 	fake := app.Email.(*fakeEmailSender)
 	if fake.count() != 3 {
@@ -203,7 +203,7 @@ func TestSendRevealEmailsRetry(t *testing.T) {
 	p2 := seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", true)
 	SaveSantaDraw(app.DB, e.ID, map[int64]int64{p1.ID: p2.ID, p2.ID: p1.ID})
 
-	app.sendRevealEmails(e.ID)
+	app.sendRevealEmails(e.ID, "http://localhost:8090")
 	if fake.count() != 2 {
 		t.Fatalf("expected both emails delivered after retry, got %d", fake.count())
 	}
@@ -224,7 +224,7 @@ func TestSendRevealEmailsPermanentFailure(t *testing.T) {
 	p2 := seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", true)
 	SaveSantaDraw(app.DB, e.ID, map[int64]int64{p1.ID: p2.ID, p2.ID: p1.ID})
 
-	app.sendRevealEmails(e.ID)
+	app.sendRevealEmails(e.ID, "http://localhost:8090")
 
 	// Alice's 3 attempts all fail -> not marked sent; Bob (processed next) still succeeds.
 	got1, _ := GetSantaParticipant(app.DB, p1.ID)
@@ -247,12 +247,12 @@ func TestResendSkipsAlreadySent(t *testing.T) {
 	p2 := seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", true)
 	SaveSantaDraw(app.DB, e.ID, map[int64]int64{p1.ID: p2.ID, p2.ID: p1.ID})
 
-	app.sendRevealEmails(e.ID)
+	app.sendRevealEmails(e.ID, "http://localhost:8090")
 	fake := app.Email.(*fakeEmailSender)
 	if fake.count() != 2 {
 		t.Fatalf("first pass: got %d emails, want 2", fake.count())
 	}
-	app.sendRevealEmails(e.ID) // both already sent
+	app.sendRevealEmails(e.ID, "http://localhost:8090") // both already sent
 	if fake.count() != 2 {
 		t.Errorf("resend should skip already-sent participants, got %d total", fake.count())
 	}
@@ -435,7 +435,7 @@ func TestSendRevealEmailsRecordsRevealEmails(t *testing.T) {
 	p2 := seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", true)
 	SaveSantaDraw(app.DB, e.ID, map[int64]int64{p1.ID: p2.ID, p2.ID: p1.ID})
 
-	app.sendRevealEmails(e.ID)
+	app.sendRevealEmails(e.ID, "http://localhost:8090")
 
 	msgs, err := ListEmailMessages(app.DB, e.ID)
 	if err != nil {
@@ -569,7 +569,7 @@ func TestSantaSendInviteEmails(t *testing.T) {
 	p1 := seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", false)
 	seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", false)
 
-	app.sendInviteEmails(e.ID)
+	app.sendInviteEmails(e.ID, "http://localhost:8090")
 
 	fake := app.Email.(*fakeEmailSender)
 	if fake.count() != 2 {
@@ -598,14 +598,14 @@ func TestSantaSendInviteEmails(t *testing.T) {
 	}
 
 	// A second run sends nothing — everyone already has a link email.
-	app.sendInviteEmails(e.ID)
+	app.sendInviteEmails(e.ID, "http://localhost:8090")
 	if fake.count() != 2 {
 		t.Errorf("re-invite must skip already-invited participants, got %d", fake.count())
 	}
 
 	// A newly added participant IS picked up by the next run.
 	seedSantaParticipant(t, app.DB, e.ID, "Carol", "carol@test.com", false)
-	app.sendInviteEmails(e.ID)
+	app.sendInviteEmails(e.ID, "http://localhost:8090")
 	if fake.count() != 3 {
 		t.Errorf("a newly added participant should be invited, got %d", fake.count())
 	}
@@ -721,7 +721,7 @@ func TestSantaDisclaimerVisibleEverywhere(t *testing.T) {
 	}
 
 	// 3) Magic-link / invitation email body.
-	app.sendInviteEmails(e.ID)
+	app.sendInviteEmails(e.ID, "http://localhost:8090")
 	fake := app.Email.(*fakeEmailSender)
 	if fake.count() == 0 {
 		t.Fatal("expected the invitation email to be sent")

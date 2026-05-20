@@ -138,19 +138,20 @@ func (s *SESSender) Send(ctx context.Context, to, subject, htmlBody string) (str
 
 // dispatchRevealEmails starts sending reveal emails. In production (AsyncEmail)
 // it runs in a goroutine so the HTTP request returns immediately; in tests it
-// runs synchronously.
-func (app *App) dispatchRevealEmails(eventID int64) {
+// runs synchronously. baseURL is captured from the triggering request so links
+// in the email point back to the same host the admin is using.
+func (app *App) dispatchRevealEmails(eventID int64, baseURL string) {
 	if app.AsyncEmail {
-		go app.sendRevealEmails(eventID)
+		go app.sendRevealEmails(eventID, baseURL)
 	} else {
-		app.sendRevealEmails(eventID)
+		app.sendRevealEmails(eventID, baseURL)
 	}
 }
 
 // sendRevealEmails sends the reveal email to every completed, assigned
 // participant of the event who has not been emailed yet. It is rate-limited and
 // guarded so only one send runs per event at a time.
-func (app *App) sendRevealEmails(eventID int64) {
+func (app *App) sendRevealEmails(eventID int64, baseURL string) {
 	if _, busy := app.sending.LoadOrStore(eventID, true); busy {
 		return
 	}
@@ -183,7 +184,7 @@ func (app *App) sendRevealEmails(eventID int64) {
 			time.Sleep(app.EmailSendDelay)
 		}
 		first = false
-		subject, htmlBody := renderSantaRevealEmail(p.Lang, p, receiver, *event, app.BaseURL)
+		subject, htmlBody := renderSantaRevealEmail(p.Lang, p, receiver, *event, baseURL)
 		if htmlBody == "" {
 			log.Printf("sendRevealEmails: empty rendered email body for participant %d, skipping", p.ID)
 			continue
@@ -204,19 +205,20 @@ func (app *App) sendRevealEmails(eventID int64) {
 
 // dispatchInviteEmails starts sending invitation emails. In production
 // (AsyncEmail) it runs in a goroutine so the HTTP request returns immediately;
-// in tests it runs synchronously.
-func (app *App) dispatchInviteEmails(eventID int64) {
+// in tests it runs synchronously. baseURL is captured from the triggering
+// request so the magic links point back to the same host the admin is using.
+func (app *App) dispatchInviteEmails(eventID int64, baseURL string) {
 	if app.AsyncEmail {
-		go app.sendInviteEmails(eventID)
+		go app.sendInviteEmails(eventID, baseURL)
 	} else {
-		app.sendInviteEmails(eventID)
+		app.sendInviteEmails(eventID, baseURL)
 	}
 }
 
 // sendInviteEmails sends the magic-link email to every participant of the event
 // who has not been sent a "link" email yet. It is rate-limited and guarded so
 // only one send runs per event at a time.
-func (app *App) sendInviteEmails(eventID int64) {
+func (app *App) sendInviteEmails(eventID int64, baseURL string) {
 	if _, busy := app.sending.LoadOrStore(eventID, true); busy {
 		return
 	}
@@ -252,7 +254,7 @@ func (app *App) sendInviteEmails(eventID int64) {
 			time.Sleep(app.EmailSendDelay)
 		}
 		first = false
-		editURL := fmt.Sprintf("%s/santa/edit?token=%s&lang=%s", app.BaseURL, p.Token, p.Lang)
+		editURL := fmt.Sprintf("%s/santa/edit?token=%s&lang=%s", baseURL, p.Token, p.Lang)
 		subject, htmlBody := renderSantaLinkEmail(p.Lang, p, *event, editURL)
 		if htmlBody == "" {
 			log.Printf("sendInviteEmails: empty rendered email body for participant %d, skipping", p.ID)
