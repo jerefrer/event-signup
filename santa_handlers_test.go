@@ -738,3 +738,47 @@ func TestSantaDisclaimerVisibleEverywhere(t *testing.T) {
 		t.Error("disclaimer should appear in the invitation email body")
 	}
 }
+
+func TestDevEmailPreviews(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	p1 := seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", true)
+	p2 := seedSantaParticipant(t, app.DB, e.ID, "Bob", "bob@test.com", true)
+	mux := newMux(app)
+
+	// Index renders for the admin.
+	w := getRequest(mux, "/dev/emails", adminCookie(app))
+	if w.Code != 200 {
+		t.Fatalf("/dev/emails status = %d, want 200", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "Email previews") {
+		t.Error("expected the previews index page to render")
+	}
+
+	// santa-link preview uses the latest participant's token.
+	w = getRequest(mux, "/dev/emails/santa-link?lang=fr", adminCookie(app))
+	if w.Code != 200 {
+		t.Fatalf("santa-link preview status = %d, want 200", w.Code)
+	}
+	latest := p2 // seeded last → latest by id
+	if !strings.Contains(w.Body.String(), latest.Token) {
+		t.Error("santa-link preview should contain the latest participant's token")
+	}
+
+	// santa-reveal preview uses two completed participants from the same event.
+	w = getRequest(mux, "/dev/emails/santa-reveal?lang=fr", adminCookie(app))
+	if w.Code != 200 {
+		t.Fatalf("santa-reveal preview status = %d, want 200", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), p2.FirstName) {
+		t.Error("santa-reveal preview should mention the receiver's first name")
+	}
+
+	// Unauthenticated → redirected to login.
+	w = getRequest(mux, "/dev/emails")
+	if w.Code != http.StatusSeeOther {
+		t.Errorf("unauthenticated /dev/emails status = %d, want 303", w.Code)
+	}
+
+	_ = p1 // p1 is only used to satisfy the "2 completed participants" requirement
+}

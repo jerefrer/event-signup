@@ -28,6 +28,8 @@ Air rebuilds, kills the running server, and restarts on every save. The **browse
 
 Admin UI: <http://localhost:8090/admin>.
 
+Email previews (admin-only) at <http://localhost:8090/dev/emails> — renders the same HTML the app would email, using real data from the latest Secret Santa event. Handy for iterating on email design without sending anything.
+
 ## Test
 
 ```bash

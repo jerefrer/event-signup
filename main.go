@@ -151,6 +151,11 @@ func main() {
 	mux.HandleFunc("/admin/santa/import", app.requireAdmin(app.handleAdminSantaImport))
 	mux.HandleFunc("/admin/santa/invite", app.requireAdmin(app.handleAdminSantaInvite))
 
+	// Dev email previews — admin-gated, render the same HTML the app would send.
+	mux.HandleFunc("/dev/emails", app.requireAdmin(app.handleDevEmailIndex))
+	mux.HandleFunc("/dev/emails/santa-link", app.requireAdmin(app.handleDevEmailSantaLink))
+	mux.HandleFunc("/dev/emails/santa-reveal", app.requireAdmin(app.handleDevEmailSantaReveal))
+
 	// Root redirect
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
