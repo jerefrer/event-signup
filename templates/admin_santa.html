@@ -36,9 +36,6 @@
             <strong>{{$total}}</strong> {{t "santa_admin_participants"}} ·
             <strong>{{$completed}}</strong> {{t "santa_admin_completed"}}
         </p>
-        {{if and (not $drawn) (gt $pending 0)}}
-        <div class="alert alert-error" style="margin-top:0.5rem;">{{printf (t "santa_admin_pending_warning") $pending}}</div>
-        {{end}}
 
         {{if not $drawn}}
         <form id="santa-import-form" method="POST" action="/admin/santa/import?lang={{lang}}" enctype="multipart/form-data" style="margin-top:1rem;">
@@ -80,6 +77,9 @@
             <button type="submit" class="btn btn-secondary"><i class="fa-solid fa-paper-plane"></i> {{t "santa_admin_resend_btn"}}</button>
         </form>
         {{else}}
+        {{if gt $pending 0}}
+        <div class="alert alert-error" style="margin-bottom:0.75rem;">{{printf (t "santa_admin_pending_warning") $pending}}</div>
+        {{end}}
         <form method="POST" action="/admin/santa/draw?lang={{lang}}" class="inline-form" onsubmit="return confirm('{{t "santa_admin_draw_confirm"}}')">
             <input type="hidden" name="event_id" value="{{$event.ID}}">
             <button type="submit" class="btn btn-primary" {{if lt $completed 2}}disabled{{end}}><i class="fa-solid fa-shuffle"></i> {{t "santa_admin_draw_btn"}}</button>
@@ -90,7 +90,7 @@
 </section>
 
 <!-- 4. Detailed list -->
-<section class="panel">
+<section class="panel" id="list-section">
     <h2 class="panel-title">{{t "santa_admin_section_list"}}</h2>
     <div class="panel-body">
         {{if $participants}}
@@ -103,9 +103,9 @@
                             <th>{{t "registration_last_name"}}</th>
                             <th>{{t "registration_first_name"}}</th>
                             <th>{{t "registration_email"}}</th>
-                            <th>{{t "santa_wish_buy"}}</th>
-                            <th>{{t "santa_wish_make"}}</th>
-                            <th>{{t "santa_wish_free"}}</th>
+                            <th class="col-wish">{{t "santa_wish_buy"}}</th>
+                            <th class="col-wish">{{t "santa_wish_make"}}</th>
+                            <th class="col-wish">{{t "santa_wish_free"}}</th>
                             <th>{{t "santa_admin_completed_col"}}</th>
                             <th>{{t "santa_admin_link_email_col"}}</th>
                             {{if $drawn}}<th>{{t "santa_admin_assigned_to"}}</th><th>{{t "santa_admin_reveal_email_col"}}</th>{{else}}<th></th>{{end}}
@@ -117,9 +117,9 @@
                             <td>{{.LastName}}</td>
                             <td>{{.FirstName}}</td>
                             <td>{{.Email}}</td>
-                            <td>{{.WishBuy}}</td>
-                            <td>{{.WishMake}}</td>
-                            <td>{{.WishFree}}</td>
+                            <td class="col-wish">{{.WishBuy}}</td>
+                            <td class="col-wish">{{.WishMake}}</td>
+                            <td class="col-wish">{{.WishFree}}</td>
                             <td>{{if .CompletedAt.Valid}}<span class="badge badge-success">{{t "santa_admin_yes"}}</span>{{else}}<span class="badge badge-danger">{{t "santa_admin_no"}}</span>{{end}}</td>
                             <td>{{template "santa-email-badge" (index $linkStatus .ID)}}</td>
                             {{if $drawn}}
@@ -152,12 +152,14 @@
     var btn = document.getElementById('reveal-btn');
     if (btn) {
         var panel = document.getElementById('participants-panel');
+        var section = document.getElementById('list-section');
         var revealTxt = {{json (t "santa_admin_reveal_btn")}};
         var hideTxt = {{json (t "santa_admin_hide_btn")}};
         var shown = false;
         btn.addEventListener('click', function() {
             shown = !shown;
             panel.style.display = shown ? '' : 'none';
+            if (section) section.classList.toggle('is-expanded', shown);
             btn.innerHTML = shown
                 ? '<i class="fa-solid fa-eye-slash"></i> ' + hideTxt
                 : '<i class="fa-solid fa-eye"></i> ' + revealTxt;
