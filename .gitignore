@@ -7,3 +7,4 @@ data.db-wal
 .envrc
 .serena
 .DS_Store
+.claude/worktrees
