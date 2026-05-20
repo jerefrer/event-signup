@@ -37,7 +37,7 @@
             <strong>{{$completed}}</strong> {{t "santa_admin_completed"}}
         </p>
         {{if and (not $drawn) (gt $pending 0)}}
-        <div class="alert alert-error" style="margin-top:0.5rem;">{{$pending}} {{t "santa_admin_pending_warning"}}</div>
+        <div class="alert alert-error" style="margin-top:0.5rem;">{{printf (t "santa_admin_pending_warning") $pending}}</div>
         {{end}}
 
         {{if not $drawn}}
