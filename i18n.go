@@ -219,7 +219,6 @@ var translations = map[string]Translations{
 	"santa_admin_no_participants": {"fr": "Aucun inscrit.", "en": "No participants yet."},
 	"santa_admin_yes":             {"fr": "Oui", "en": "Yes"},
 	"santa_admin_no":              {"fr": "Non", "en": "No"},
-	"santa_admin_view":            {"fr": "Gérer le Secret Santa", "en": "Manage Secret Santa"},
 	"santa_admin_section_participants": {"fr": "Participants", "en": "Participants"},
 	"santa_admin_section_invitations":  {"fr": "Invitations", "en": "Invitations"},
 	"santa_admin_section_draw":         {"fr": "Tirage", "en": "Draw"},

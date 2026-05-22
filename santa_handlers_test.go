@@ -271,7 +271,7 @@ func TestAdminSantaPage(t *testing.T) {
 	e := seedSantaEvent(t, app.DB)
 	seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", true)
 	mux := newMux(app)
-	w := getRequest(mux, fmt.Sprintf("/admin/event/santa?id=%d&lang=fr", e.ID), adminCookie(app))
+	w := getRequest(mux, fmt.Sprintf("/admin/event/edit?id=%d&lang=fr", e.ID), adminCookie(app))
 	if w.Code != 200 {
 		t.Fatalf("status = %d, want 200", w.Code)
 	}
@@ -473,7 +473,7 @@ func TestAdminSantaShowsEmailStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	mux := newMux(app)
-	w := getRequest(mux, fmt.Sprintf("/admin/event/santa?id=%d&lang=fr", e.ID), adminCookie(app))
+	w := getRequest(mux, fmt.Sprintf("/admin/event/edit?id=%d&lang=fr", e.ID), adminCookie(app))
 	if w.Code != 200 {
 		t.Fatalf("status = %d, want 200", w.Code)
 	}
@@ -495,7 +495,7 @@ func TestAdminSantaRevealProblems(t *testing.T) {
 		t.Fatal(err)
 	}
 	mux := newMux(app)
-	w := getRequest(mux, fmt.Sprintf("/admin/event/santa?id=%d&lang=fr", e.ID), adminCookie(app))
+	w := getRequest(mux, fmt.Sprintf("/admin/event/edit?id=%d&lang=fr", e.ID), adminCookie(app))
 	if w.Code != 200 {
 		t.Fatalf("status = %d", w.Code)
 	}
@@ -666,7 +666,7 @@ func TestAdminSantaPageShowsImportAndInvite(t *testing.T) {
 	seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", false)
 	mux := newMux(app)
 
-	w := getRequest(mux, fmt.Sprintf("/admin/event/santa?id=%d&lang=fr", e.ID), adminCookie(app))
+	w := getRequest(mux, fmt.Sprintf("/admin/event/edit?id=%d&lang=fr", e.ID), adminCookie(app))
 	if w.Code != 200 {
 		t.Fatalf("status = %d, want 200", w.Code)
 	}

@@ -34,7 +34,7 @@
             {{if eq .EventType "attendance"}}
             <a href="/admin/event/attendances?id={{.ID}}&lang={{lang}}" class="btn btn-sm btn-secondary">{{t "section_attendances"}}{{if .RegCount}} <span class="count-badge count-yes">&#x2713; {{.AttendanceYes}}</span> <span class="count-badge count-no">&#x2717; {{.AttendanceNo}}</span>{{end}}</a>
             {{else if eq .EventType "secret_santa"}}
-            <a href="/admin/event/santa?id={{.ID}}&lang={{lang}}" class="btn btn-sm btn-secondary"><i class="fa-solid fa-gift"></i> {{t "santa_admin_title"}}{{if .RegCount}} <span class="count-badge">{{.RegCount}}</span>{{end}}</a>
+            <a href="/admin/event/edit?id={{.ID}}&lang={{lang}}" class="btn btn-sm btn-secondary"><i class="fa-solid fa-gift"></i> {{t "santa_admin_title"}}{{if .RegCount}} <span class="count-badge">{{.RegCount}}</span>{{end}}</a>
             {{else}}
             <a href="/admin/event/registrations?id={{.ID}}&lang={{lang}}" class="btn btn-sm btn-secondary">{{t "section_registrations"}}{{if .RegCount}} <span class="count-badge">{{.RegCount}}</span>{{end}}</a>
             {{end}}
