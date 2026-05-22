@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"net/mail"
 	"net/url"
 	"time"
 
@@ -147,16 +148,26 @@ func renderEmailTemplate(name string, data any) string {
 // read from the standard AWS environment (AWS_REGION, AWS_ACCESS_KEY_ID, ...).
 type SESSender struct {
 	client    *sesv2.Client
-	from      string
+	from      string // RFC 5322 From; may carry a display name ("Name <addr>")
 	configSet string // SES configuration set; enables delivery-event publishing
 }
 
-func NewSESSender(ctx context.Context, from, configSet string) (*SESSender, error) {
+func NewSESSender(ctx context.Context, from, fromName, configSet string) (*SESSender, error) {
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("load aws config: %w", err)
 	}
-	return &SESSender{client: sesv2.NewFromConfig(cfg), from: from, configSet: configSet}, nil
+	return &SESSender{client: sesv2.NewFromConfig(cfg), from: formatFrom(from, fromName), configSet: configSet}, nil
+}
+
+// formatFrom builds the From header. With a display name it returns
+// "Name <addr>" (mail.Address handles RFC 2047 encoding for non-ASCII names);
+// without one it returns the bare address.
+func formatFrom(addr, name string) string {
+	if name == "" {
+		return addr
+	}
+	return (&mail.Address{Name: name, Address: addr}).String()
 }
 
 func (s *SESSender) Send(ctx context.Context, to, subject, htmlBody string) (string, error) {

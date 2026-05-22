@@ -45,10 +45,11 @@ func main() {
 	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
 
 	emailFrom := os.Getenv("EVENT_SIGNUP_EMAIL_FROM")
+	emailFromName := os.Getenv("EVENT_SIGNUP_EMAIL_FROM_NAME")
 	emailConfigSet := os.Getenv("EVENT_SIGNUP_SES_CONFIGURATION_SET")
 	var emailSender EmailSender
 	if emailFrom != "" {
-		s, err := NewSESSender(context.Background(), emailFrom, emailConfigSet)
+		s, err := NewSESSender(context.Background(), emailFrom, emailFromName, emailConfigSet)
 		if err != nil {
 			log.Fatalf("Failed to initialize SES: %v", err)
 		}
