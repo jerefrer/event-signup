@@ -31,6 +31,12 @@
     <section class="panel">
         <h2 class="panel-title">{{t "santa_wishes_title"}}</h2>
         <div class="panel-body">
+            {{if eq lang "en"}}
+            <div class="next-step">
+                <i class="fa-solid fa-language" aria-hidden="true"></i>
+                <span>{{t "santa_wishes_french_note"}}</span>
+            </div>
+            {{end}}
             <div class="form-group">
                 <label for="wish_buy">{{t "santa_wish_buy"}} *</label>
                 <p class="form-hint">{{t "santa_wish_buy_hint"}}</p>

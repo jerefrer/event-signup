@@ -173,6 +173,7 @@ var translations = map[string]Translations{
 
 	// Secret Santa — wishes form
 	"santa_wishes_title":    {"fr": "Ma liste de souhaits", "en": "My wish list"},
+	"santa_wishes_french_note": {"fr": "La plupart des participants sont francophones — si tu peux, écris ta liste en français pour que tout le monde puisse la lire.", "en": "Most participants here are French speakers. If you can, please write your wish list in French so everyone can read it."},
 	"santa_wish_buy":        {"fr": "Quelque chose qui peut être acheté (moins de 10 €)", "en": "Something that can be bought (under €10)"},
 	"santa_wish_buy_hint":   {"fr": "Pour ceux qui n'ont pas le temps — un stylo, des chaussettes, du chocolat…", "en": "For those short on time — a pen, socks, chocolate…"},
 	"santa_wish_make":       {"fr": "Quelque chose qui peut être fabriqué ou trouvé", "en": "Something that can be made or found"},
