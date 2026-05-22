@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -225,6 +226,50 @@ func (app *App) handleAdminLogout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 }
 
+// setFlash stores a one-shot message in a short-lived cookie, shown once on the
+// next page render. kind is "success" or "error". This backs the
+// Post/Redirect/Get pattern: a handler redirects after a POST so a browser
+// refresh re-requests the page instead of re-submitting the form.
+func setFlash(w http.ResponseWriter, kind, msg string) {
+	raw := base64.URLEncoding.EncodeToString([]byte(kind + "\x00" + msg))
+	http.SetCookie(w, &http.Cookie{
+		Name:     "flash",
+		Value:    raw,
+		Path:     "/",
+		MaxAge:   60,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// takeFlash reads and immediately clears the flash cookie, returning the
+// success and error messages it carried (either may be empty).
+func takeFlash(w http.ResponseWriter, r *http.Request) (success, errMsg string) {
+	c, err := r.Cookie("flash")
+	if err != nil || c.Value == "" {
+		return "", ""
+	}
+	http.SetCookie(w, &http.Cookie{Name: "flash", Value: "", Path: "/", MaxAge: -1})
+	raw, err := base64.URLEncoding.DecodeString(c.Value)
+	if err != nil {
+		return "", ""
+	}
+	kind, msg, ok := strings.Cut(string(raw), "\x00")
+	if !ok {
+		return "", ""
+	}
+	if kind == "error" {
+		return "", msg
+	}
+	return msg, ""
+}
+
+// santaRedirect sends the admin back to the event edit page (where Secret Santa
+// is managed) after a POST action — the GET side picks up any flash message.
+func (app *App) santaRedirect(w http.ResponseWriter, r *http.Request, eventID int64) {
+	http.Redirect(w, r, fmt.Sprintf("/admin/event/edit?id=%d&lang=%s", eventID, LangFromRequest(r)), http.StatusSeeOther)
+}
+
 // ---- Admin Events List ----
 
 func (app *App) handleAdminEvents(w http.ResponseWriter, r *http.Request) {
@@ -319,6 +364,7 @@ func (app *App) handleAdminEventEdit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pd := app.newPageData(r, app.eventEditData(r, event))
+	pd.Success, pd.Error = takeFlash(w, r)
 	app.render(w, r, "admin_event_edit.html", pd)
 }
 
@@ -1242,8 +1288,7 @@ func (app *App) handleAdminSantaDraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if event.SantaDrawnAt.Valid {
-		pd := app.newPageData(r, app.eventEditData(r, event))
-		app.render(w, r, "admin_event_edit.html", pd)
+		app.santaRedirect(w, r, event.ID)
 		return
 	}
 	participants, _ := ListSantaParticipants(app.DB, event.ID)
@@ -1254,31 +1299,26 @@ func (app *App) handleAdminSantaDraw(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(ids) < 2 {
-		pd := app.newPageData(r, app.eventEditData(r, event))
-		pd.Error = T("santa_admin_too_few", lang)
-		app.render(w, r, "admin_event_edit.html", pd)
+		setFlash(w, "error", T("santa_admin_too_few", lang))
+		app.santaRedirect(w, r, event.ID)
 		return
 	}
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	assignments, err := DrawSecretSanta(ids, rng)
 	if err != nil {
-		pd := app.newPageData(r, app.eventEditData(r, event))
-		pd.Error = T("santa_admin_too_few", lang)
-		app.render(w, r, "admin_event_edit.html", pd)
+		setFlash(w, "error", T("santa_admin_too_few", lang))
+		app.santaRedirect(w, r, event.ID)
 		return
 	}
 	if err := SaveSantaDraw(app.DB, event.ID, assignments); err != nil {
 		log.Printf("santa draw save error: %v", err)
-		pd := app.newPageData(r, app.eventEditData(r, event))
-		pd.Error = T("error_server", lang)
-		app.render(w, r, "admin_event_edit.html", pd)
+		setFlash(w, "error", T("error_server", lang))
+		app.santaRedirect(w, r, event.ID)
 		return
 	}
 	app.dispatchRevealEmails(event.ID, baseURLFor(r))
-	event, _ = GetEvent(app.DB, event.ID)
-	pd := app.newPageData(r, app.eventEditData(r, event))
-	pd.Success = T("santa_admin_draw_done", lang)
-	app.render(w, r, "admin_event_edit.html", pd)
+	setFlash(w, "success", T("santa_admin_draw_done", lang))
+	app.santaRedirect(w, r, event.ID)
 }
 
 func (app *App) handleAdminSantaResend(w http.ResponseWriter, r *http.Request) {
@@ -1295,13 +1335,9 @@ func (app *App) handleAdminSantaResend(w http.ResponseWriter, r *http.Request) {
 	}
 	if event.SantaDrawnAt.Valid {
 		app.dispatchRevealEmails(event.ID, baseURLFor(r))
-		event, _ = GetEvent(app.DB, event.ID)
+		setFlash(w, "success", T("santa_admin_resend_done", lang))
 	}
-	pd := app.newPageData(r, app.eventEditData(r, event))
-	if event.SantaDrawnAt.Valid {
-		pd.Success = T("santa_admin_resend_done", lang)
-	}
-	app.render(w, r, "admin_event_edit.html", pd)
+	app.santaRedirect(w, r, event.ID)
 }
 
 func (app *App) handleAdminSantaParticipantDelete(w http.ResponseWriter, r *http.Request) {
@@ -1332,10 +1368,12 @@ func (app *App) handleAdminSantaImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	renderMsg := func(errMsg, okMsg string) {
-		pd := app.newPageData(r, app.eventEditData(r, event))
-		pd.Error = errMsg
-		pd.Success = okMsg
-		app.render(w, r, "admin_event_edit.html", pd)
+		if errMsg != "" {
+			setFlash(w, "error", errMsg)
+		} else if okMsg != "" {
+			setFlash(w, "success", okMsg)
+		}
+		app.santaRedirect(w, r, event.ID)
 	}
 	if event.SantaDrawnAt.Valid {
 		renderMsg(T("santa_import_closed", lang), "")
@@ -1388,15 +1426,13 @@ func (app *App) handleAdminSantaInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if event.SantaDrawnAt.Valid {
-		pd := app.newPageData(r, app.eventEditData(r, event))
-		pd.Error = T("santa_invite_closed", lang)
-		app.render(w, r, "admin_event_edit.html", pd)
+		setFlash(w, "error", T("santa_invite_closed", lang))
+		app.santaRedirect(w, r, event.ID)
 		return
 	}
 	app.dispatchInviteEmails(event.ID, baseURLFor(r))
-	pd := app.newPageData(r, app.eventEditData(r, event))
-	pd.Success = T("santa_invite_done", lang)
-	app.render(w, r, "admin_event_edit.html", pd)
+	setFlash(w, "success", T("santa_invite_done", lang))
+	app.santaRedirect(w, r, event.ID)
 }
 
 // ---- Secret Santa: CSV import parsing ----

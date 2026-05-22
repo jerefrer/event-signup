@@ -290,8 +290,8 @@ func TestAdminSantaDraw(t *testing.T) {
 	w := postForm(mux, "/admin/santa/draw?lang=fr", url.Values{
 		"event_id": {fmt.Sprint(e.ID)},
 	}, adminCookie(app))
-	if w.Code != 200 {
-		t.Fatalf("status = %d, want 200", w.Code)
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusSeeOther)
 	}
 	ev, _ := GetEvent(app.DB, e.ID)
 	if !ev.SantaDrawnAt.Valid {
@@ -326,8 +326,8 @@ func TestAdminSantaDrawTooFew(t *testing.T) {
 	w := postForm(mux, "/admin/santa/draw?lang=fr", url.Values{
 		"event_id": {fmt.Sprint(e.ID)},
 	}, adminCookie(app))
-	if w.Code != 200 {
-		t.Fatalf("status = %d", w.Code)
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusSeeOther)
 	}
 	ev, _ := GetEvent(app.DB, e.ID)
 	if ev.SantaDrawnAt.Valid {
@@ -346,8 +346,8 @@ func TestAdminSantaResend(t *testing.T) {
 	w := postForm(mux, "/admin/santa/resend?lang=fr", url.Values{
 		"event_id": {fmt.Sprint(e.ID)},
 	}, adminCookie(app))
-	if w.Code != 200 {
-		t.Fatalf("status = %d", w.Code)
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusSeeOther)
 	}
 	fake := app.Email.(*fakeEmailSender)
 	if fake.count() != 1 {
@@ -397,14 +397,15 @@ func TestAdminSantaResendBeforeDraw(t *testing.T) {
 	w := postForm(mux, "/admin/santa/resend?lang=fr", url.Values{
 		"event_id": {fmt.Sprint(e.ID)},
 	}, adminCookie(app))
-	if w.Code != 200 {
-		t.Fatalf("status = %d", w.Code)
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusSeeOther)
 	}
 	fake := app.Email.(*fakeEmailSender)
 	if fake.count() != 0 {
 		t.Errorf("resend before the draw must send nothing, got %d", fake.count())
 	}
-	if strings.Contains(w.Body.String(), T("santa_admin_resend_done", LangFR)) {
+	page := followRedirect(mux, w, adminCookie(app))
+	if strings.Contains(page.Body.String(), T("santa_admin_resend_done", LangFR)) {
 		t.Error("resend before the draw must not show the 'resend in progress' message")
 	}
 }
@@ -518,8 +519,8 @@ func TestAdminSantaImport(t *testing.T) {
 	csv := "email,Nom,Prénom,Langue\nalice@test.com,Dupont,Alice,fr\nbob@test.com,Martin,Bob,en\n,NoEmail,X,fr\n"
 	w := postMultipart(mux, "/admin/santa/import?lang=fr", "list.csv", csv,
 		map[string]string{"event_id": fmt.Sprint(e.ID)}, adminCookie(app))
-	if w.Code != 200 {
-		t.Fatalf("status = %d, want 200", w.Code)
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusSeeOther)
 	}
 
 	ps, _ := ListSantaParticipants(app.DB, e.ID)
@@ -539,8 +540,9 @@ func TestAdminSantaImport(t *testing.T) {
 	}
 
 	wantMsg := fmt.Sprintf(T("santa_import_done", LangFR), 2, 0, 1)
-	if !strings.Contains(w.Body.String(), wantMsg) {
-		t.Errorf("expected import result message %q in the rendered page", wantMsg)
+	page := followRedirect(mux, w, adminCookie(app))
+	if !strings.Contains(page.Body.String(), wantMsg) {
+		t.Errorf("expected import result message %q on the redirected page", wantMsg)
 	}
 }
 
@@ -630,7 +632,8 @@ func TestAdminSantaImportRejectedAfterDraw(t *testing.T) {
 	csv := "email,Prénom\ncarol@test.com,Carol\n"
 	w := postMultipart(mux, "/admin/santa/import?lang=fr", "list.csv", csv,
 		map[string]string{"event_id": fmt.Sprint(e.ID)}, adminCookie(app))
-	if !strings.Contains(w.Body.String(), T("santa_import_closed", LangFR)) {
+	page := followRedirect(mux, w, adminCookie(app))
+	if !strings.Contains(page.Body.String(), T("santa_import_closed", LangFR)) {
 		t.Error("import should be refused once the draw has happened")
 	}
 	if _, err := GetSantaParticipantByEmail(app.DB, e.ID, "carol@test.com"); err == nil {
@@ -648,14 +651,15 @@ func TestAdminSantaInvite(t *testing.T) {
 	w := postForm(mux, "/admin/santa/invite?lang=fr", url.Values{
 		"event_id": {fmt.Sprint(e.ID)},
 	}, adminCookie(app))
-	if w.Code != 200 {
-		t.Fatalf("status = %d, want 200", w.Code)
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusSeeOther)
 	}
 	fake := app.Email.(*fakeEmailSender)
 	if fake.count() != 2 {
 		t.Fatalf("expected 2 invitation emails, got %d", fake.count())
 	}
-	if !strings.Contains(w.Body.String(), T("santa_invite_done", LangFR)) {
+	page := followRedirect(mux, w, adminCookie(app))
+	if !strings.Contains(page.Body.String(), T("santa_invite_done", LangFR)) {
 		t.Error("expected the invitation-sent confirmation message")
 	}
 }
@@ -698,7 +702,8 @@ func TestAdminSantaInviteRejectedAfterDraw(t *testing.T) {
 	w := postForm(mux, "/admin/santa/invite?lang=fr", url.Values{
 		"event_id": {fmt.Sprint(e.ID)},
 	}, adminCookie(app))
-	if !strings.Contains(w.Body.String(), T("santa_invite_closed", LangFR)) {
+	page := followRedirect(mux, w, adminCookie(app))
+	if !strings.Contains(page.Body.String(), T("santa_invite_closed", LangFR)) {
 		t.Error("invitations should be refused once the draw has happened")
 	}
 	if fake.count() != before {

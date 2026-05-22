@@ -85,6 +85,20 @@ func getRequest(mux http.Handler, path string, cookies ...*http.Cookie) *httptes
 	return w
 }
 
+// followRedirect issues a GET for a 3xx response's Location, carrying both the
+// response's Set-Cookie values (so a flash message survives) and the given
+// cookies. Used to test the Post/Redirect/Get handlers end to end. Returns the
+// original recorder unchanged when there is no redirect.
+func followRedirect(mux http.Handler, w *httptest.ResponseRecorder, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+	loc := w.Header().Get("Location")
+	if loc == "" {
+		return w
+	}
+	all := append([]*http.Cookie{}, cookies...)
+	all = append(all, w.Result().Cookies()...)
+	return getRequest(mux, loc, all...)
+}
+
 // ---- Public event page ----
 
 func TestPublicEventPage(t *testing.T) {
