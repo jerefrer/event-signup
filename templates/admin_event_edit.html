@@ -338,21 +338,30 @@
 
 <script>
 (function() {
-    // Reveal toggle — show/hide the detailed table.
+    // Reveal toggle — show/hide the detailed table. The open/closed choice is
+    // remembered per event in localStorage, so a refresh or revisit restores
+    // the state the admin left it in.
     var btn = document.getElementById('reveal-btn');
     if (btn) {
         var panel = document.getElementById('participants-panel');
         var section = document.getElementById('list-section');
         var revealTxt = {{json (t "santa_admin_reveal_btn")}};
         var hideTxt = {{json (t "santa_admin_hide_btn")}};
-        var shown = false;
-        btn.addEventListener('click', function() {
-            shown = !shown;
+        var storeKey = 'santa-list-revealed-' + {{json (printf "%d" $event.ID)}};
+        function apply(shown) {
             panel.style.display = shown ? '' : 'none';
             if (section) section.classList.toggle('is-expanded', shown);
             btn.innerHTML = shown
                 ? '<i class="fa-solid fa-eye-slash"></i> ' + hideTxt
                 : '<i class="fa-solid fa-eye"></i> ' + revealTxt;
+        }
+        var shown = false;
+        try { shown = localStorage.getItem(storeKey) === '1'; } catch (e) {}
+        apply(shown);
+        btn.addEventListener('click', function() {
+            shown = !shown;
+            try { localStorage.setItem(storeKey, shown ? '1' : '0'); } catch (e) {}
+            apply(shown);
         });
     }
 
