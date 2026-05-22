@@ -212,6 +212,7 @@ var translations = map[string]Translations{
 	"santa_invite_done":         {"fr": "Envoi des invitations en cours.", "en": "Sending invitations."},
 	"santa_invite_closed":       {"fr": "Envoi impossible : le tirage a déjà eu lieu.", "en": "Sending unavailable: the draw has already happened."},
 	"santa_invite_count":        {"fr": "invitation(s) envoyée(s)", "en": "invitation(s) sent"},
+	"santa_invite_prompt":       {"fr": "Vos participants sont importés. Envoyez-leur leur invitation pour qu'ils puissent remplir leur liste de souhaits.", "en": "Your participants are imported. Send them their invitation so they can fill in their wishlist."},
 	"santa_admin_emails_sent":     {"fr": "emails envoyés", "en": "emails sent"},
 	"santa_admin_assigned_to":     {"fr": "Offre à", "en": "Gives to"},
 	"santa_admin_completed_col":   {"fr": "Liste complétée", "en": "List completed"},

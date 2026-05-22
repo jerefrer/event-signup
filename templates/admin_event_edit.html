@@ -229,11 +229,22 @@
 <section class="panel">
     <h2 class="panel-title">{{t "santa_admin_section_invitations"}}</h2>
     <div class="panel-body">
+        {{if eq (len $linkStatus) 0}}
+        <div class="next-step">
+            <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            <span>{{t "santa_invite_prompt"}}</span>
+        </div>
+        <form method="POST" action="/admin/santa/invite?lang={{lang}}" class="inline-form" onsubmit="return confirm('{{t "santa_invite_confirm"}}')">
+            <input type="hidden" name="event_id" value="{{$event.ID}}">
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> {{t "santa_invite_btn"}}</button>
+        </form>
+        {{else}}
         <p><strong>{{len $linkStatus}}</strong> {{t "santa_invite_count"}}</p>
-        <form method="POST" action="/admin/santa/invite?lang={{lang}}" class="inline-form" style="margin-top:0.5rem;" onsubmit="return confirm('{{t "santa_invite_confirm"}}')">
+        <form method="POST" action="/admin/santa/invite?lang={{lang}}" class="inline-form" style="margin-top:1rem;" onsubmit="return confirm('{{t "santa_invite_confirm"}}')">
             <input type="hidden" name="event_id" value="{{$event.ID}}">
             <button type="submit" class="btn btn-secondary"><i class="fa-solid fa-paper-plane"></i> {{t "santa_invite_btn"}}</button>
         </form>
+        {{end}}
     </div>
 </section>
 {{end}}
