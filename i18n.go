@@ -241,7 +241,6 @@ var translations = map[string]Translations{
 	"santa_email_reveal_subject": {"fr": "Votre tirage Secret Santa pour", "en": "Your Secret Santa draw for"},
 	"santa_email_reveal_intro":   {"fr": "Vous offrez un cadeau à :", "en": "You are giving a gift to:"},
 	"santa_email_reveal_wishes":  {"fr": "Voici ses souhaits :", "en": "Here are their wishes:"},
-	"santa_email_reveal_link":    {"fr": "Voir l'événement", "en": "View the event"},
 
 	// Public RSVP
 	"rsvp_title":               {"fr": "Confirmer votre présence", "en": "Confirm Your Attendance"},

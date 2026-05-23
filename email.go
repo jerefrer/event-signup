@@ -92,7 +92,6 @@ type santaRevealEmailData struct {
 	Greeting, Intro, ReceiverName, WishesIntro string
 	WishBuyLabel, WishMakeLabel, WishFreeLabel string
 	WishBuy, WishMake, WishFree                string
-	EventURL, EventLinkText                    string
 }
 
 // logoURLFromBase returns the absolute URL of the email logo (the red
@@ -162,8 +161,6 @@ func renderSantaRevealEmail(lang string, giver, receiver SantaParticipant, event
 		WishBuy:       receiver.WishBuy,
 		WishMake:      receiver.WishMake,
 		WishFree:      receiver.WishFree,
-		EventURL:      baseURL + "/e/" + event.Slug,
-		EventLinkText: T("santa_email_reveal_link", lang),
 	}
 	return T("santa_email_reveal_subject", lang) + " " + eventTitle, renderEmailTemplate("email_santa_reveal.html", data)
 }
