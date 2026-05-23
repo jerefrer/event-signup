@@ -65,10 +65,11 @@ func int64Ptr(v int64) *int64 { return &v }
 
 // sentEmail records one email handed to fakeEmailSender.
 type sentEmail struct {
-	To        string
-	Subject   string
-	HTML      string
-	MessageID string
+	To          string
+	Subject     string
+	HTML        string
+	MessageID   string
+	Attachments []string // filenames of any attachments
 }
 
 // fakeEmailSender records emails for assertions. failUntil makes the next N
@@ -79,7 +80,7 @@ type fakeEmailSender struct {
 	failUntil int
 }
 
-func (f *fakeEmailSender) Send(ctx context.Context, to, subject, htmlBody string) (string, error) {
+func (f *fakeEmailSender) Send(ctx context.Context, to, subject, htmlBody string, attachments ...emailAttachment) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.failUntil > 0 {
@@ -87,7 +88,11 @@ func (f *fakeEmailSender) Send(ctx context.Context, to, subject, htmlBody string
 		return "", fmt.Errorf("fake email failure")
 	}
 	id := fmt.Sprintf("fake-msg-%d", len(f.sent)+1)
-	f.sent = append(f.sent, sentEmail{To: to, Subject: subject, HTML: htmlBody, MessageID: id})
+	var names []string
+	for _, a := range attachments {
+		names = append(names, a.Filename)
+	}
+	f.sent = append(f.sent, sentEmail{To: to, Subject: subject, HTML: htmlBody, MessageID: id, Attachments: names})
 	return id, nil
 }
 

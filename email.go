@@ -3,11 +3,19 @@ package main
 import (
 	"bytes"
 	"context"
+	_ "embed"
+	"encoding/base64"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
+	"mime"
+	"mime/multipart"
+	"mime/quotedprintable"
 	"net/mail"
+	"net/textproto"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -17,16 +25,52 @@ import (
 )
 
 // EmailSender delivers a single transactional HTML email and returns the
-// provider's message ID (used to correlate later delivery events).
+// provider's message ID (used to correlate later delivery events). Optional
+// attachments are delivered alongside the HTML body.
 type EmailSender interface {
-	Send(ctx context.Context, to, subject, htmlBody string) (messageID string, err error)
+	Send(ctx context.Context, to, subject, htmlBody string, attachments ...emailAttachment) (messageID string, err error)
+}
+
+// emailAttachment is a file delivered alongside the HTML body. SES carries
+// attachments only via a raw MIME message, so any send with attachments
+// switches from the Simple content type to Raw (see buildRawMIME).
+type emailAttachment struct {
+	Filename    string
+	ContentType string
+	Data        []byte
+}
+
+// soleilDeLaConfiancePDF is the "Soleil de la confiance" teaching, attached to
+// every invitation/reminder email. Embedded so it ships inside the binary —
+// consistent with how templates, static assets, and the schema are bundled.
+//
+//go:embed "Le soleil de la confiance.pdf"
+var soleilDeLaConfiancePDF []byte
+
+// invitationAttachments returns the files attached to every invitation/reminder
+// email. A fresh slice per call keeps callers from sharing mutable state; the
+// underlying Data is read-only.
+func invitationAttachments() []emailAttachment {
+	return []emailAttachment{{
+		Filename:    "Le soleil de la confiance.pdf",
+		ContentType: "application/pdf",
+		Data:        soleilDeLaConfiancePDF,
+	}}
 }
 
 // LogSender writes emails to the log instead of sending them. Used when SES is
 // not configured (development, manual testing).
 type LogSender struct{}
 
-func (LogSender) Send(ctx context.Context, to, subject, htmlBody string) (string, error) {
+func (LogSender) Send(ctx context.Context, to, subject, htmlBody string, attachments ...emailAttachment) (string, error) {
+	if len(attachments) > 0 {
+		names := make([]string, len(attachments))
+		for i, a := range attachments {
+			names[i] = a.Filename
+		}
+		log.Printf("[email] to=%s subject=%q attachments=%v\n%s", to, subject, names, htmlBody)
+		return "", nil
+	}
 	log.Printf("[email] to=%s subject=%q\n%s", to, subject, htmlBody)
 	return "", nil
 }
@@ -169,18 +213,27 @@ func formatFrom(addr, name string) string {
 	return (&mail.Address{Name: name, Address: addr}).String()
 }
 
-func (s *SESSender) Send(ctx context.Context, to, subject, htmlBody string) (string, error) {
+func (s *SESSender) Send(ctx context.Context, to, subject, htmlBody string, attachments ...emailAttachment) (string, error) {
 	in := &sesv2.SendEmailInput{
 		FromEmailAddress: aws.String(s.from),
 		Destination:      &sesv2types.Destination{ToAddresses: []string{to}},
-		Content: &sesv2types.EmailContent{
+	}
+	if len(attachments) > 0 {
+		// Simple content can't carry attachments — assemble a raw MIME message.
+		raw, err := buildRawMIME(s.from, to, subject, htmlBody, attachments)
+		if err != nil {
+			return "", fmt.Errorf("build raw mime: %w", err)
+		}
+		in.Content = &sesv2types.EmailContent{Raw: &sesv2types.RawMessage{Data: raw}}
+	} else {
+		in.Content = &sesv2types.EmailContent{
 			Simple: &sesv2types.Message{
 				Subject: &sesv2types.Content{Data: aws.String(subject), Charset: aws.String("UTF-8")},
 				Body: &sesv2types.Body{
 					Html: &sesv2types.Content{Data: aws.String(htmlBody), Charset: aws.String("UTF-8")},
 				},
 			},
-		},
+		}
 	}
 	if s.configSet != "" {
 		in.ConfigurationSetName = aws.String(s.configSet)
@@ -193,6 +246,75 @@ func (s *SESSender) Send(ctx context.Context, to, subject, htmlBody string) (str
 		return "", nil
 	}
 	return *out.MessageId, nil
+}
+
+// buildRawMIME assembles a multipart/mixed RFC 5322 message — the HTML body
+// plus each attachment — for SES's Raw content type. The Subject is RFC
+// 2047-encoded so non-ASCII (French) survives; the HTML body is quoted-printable
+// and attachments are base64 with the line wrapping RFC 2045 requires.
+func buildRawMIME(from, to, subject, htmlBody string, attachments []emailAttachment) ([]byte, error) {
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+
+	headers := []string{
+		"From: " + from,
+		"To: " + to,
+		"Subject: " + mime.QEncoding.Encode("utf-8", subject),
+		"MIME-Version: 1.0",
+		"Content-Type: multipart/mixed; boundary=" + w.Boundary(),
+	}
+	buf.WriteString(strings.Join(headers, "\r\n") + "\r\n\r\n")
+
+	htmlHeader := textproto.MIMEHeader{}
+	htmlHeader.Set("Content-Type", "text/html; charset=UTF-8")
+	htmlHeader.Set("Content-Transfer-Encoding", "quoted-printable")
+	htmlPart, err := w.CreatePart(htmlHeader)
+	if err != nil {
+		return nil, fmt.Errorf("create html part: %w", err)
+	}
+	qp := quotedprintable.NewWriter(htmlPart)
+	if _, err := qp.Write([]byte(htmlBody)); err != nil {
+		return nil, fmt.Errorf("write html body: %w", err)
+	}
+	if err := qp.Close(); err != nil {
+		return nil, fmt.Errorf("close html body: %w", err)
+	}
+
+	for _, a := range attachments {
+		ah := textproto.MIMEHeader{}
+		ah.Set("Content-Type", a.ContentType)
+		ah.Set("Content-Transfer-Encoding", "base64")
+		ah.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", a.Filename))
+		part, err := w.CreatePart(ah)
+		if err != nil {
+			return nil, fmt.Errorf("create attachment part %q: %w", a.Filename, err)
+		}
+		if err := writeBase64Wrapped(part, a.Data); err != nil {
+			return nil, fmt.Errorf("encode attachment %q: %w", a.Filename, err)
+		}
+	}
+
+	if err := w.Close(); err != nil {
+		return nil, fmt.Errorf("close mime writer: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+// writeBase64Wrapped writes data as base64 with a CRLF every 76 characters, the
+// line length RFC 2045 mandates for the base64 transfer encoding.
+func writeBase64Wrapped(w io.Writer, data []byte) error {
+	const lineLen = 76
+	encoded := base64.StdEncoding.EncodeToString(data)
+	for i := 0; i < len(encoded); i += lineLen {
+		end := i + lineLen
+		if end > len(encoded) {
+			end = len(encoded)
+		}
+		if _, err := io.WriteString(w, encoded[i:end]+"\r\n"); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // dispatchRevealEmails starts sending reveal emails. In production (AsyncEmail)
@@ -319,7 +441,7 @@ func (app *App) sendInviteEmails(eventID int64, baseURL string) {
 			log.Printf("sendInviteEmails: empty rendered email body for participant %d, skipping", p.ID)
 			continue
 		}
-		messageID, err := app.sendWithRetry(p.Email, subject, htmlBody)
+		messageID, err := app.sendWithRetry(p.Email, subject, htmlBody, invitationAttachments()...)
 		if err != nil {
 			log.Printf("sendInviteEmails: send to %s failed: %v", p.Email, err)
 			continue
@@ -331,7 +453,7 @@ func (app *App) sendInviteEmails(eventID int64, baseURL string) {
 }
 
 // sendWithRetry retries a transient send failure up to 3 attempts.
-func (app *App) sendWithRetry(to, subject, htmlBody string) (string, error) {
+func (app *App) sendWithRetry(to, subject, htmlBody string, attachments ...emailAttachment) (string, error) {
 	var lastErr error
 	for attempt := 0; attempt < 3; attempt++ {
 		if attempt > 0 {
@@ -339,7 +461,7 @@ func (app *App) sendWithRetry(to, subject, htmlBody string) (string, error) {
 			// app's scale; a dedicated retry-delay field would be over-engineering.
 			time.Sleep(app.EmailSendDelay)
 		}
-		messageID, err := app.Email.Send(context.Background(), to, subject, htmlBody)
+		messageID, err := app.Email.Send(context.Background(), to, subject, htmlBody, attachments...)
 		if err == nil {
 			return messageID, nil
 		}

@@ -595,6 +595,12 @@ func TestSantaSendInviteEmails(t *testing.T) {
 	if !found {
 		t.Error("alice's invitation should contain her edit token")
 	}
+	// Every invitation carries the "Soleil de la confiance" PDF attachment.
+	for _, m := range fake.sent {
+		if len(m.Attachments) != 1 || m.Attachments[0] != "Le soleil de la confiance.pdf" {
+			t.Errorf("invitation to %s attachments = %v, want [Le soleil de la confiance.pdf]", m.To, m.Attachments)
+		}
+	}
 	// A link email_messages row was recorded for each participant.
 	msgs, _ := ListEmailMessages(app.DB, e.ID)
 	links := 0
