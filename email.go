@@ -40,7 +40,7 @@ type emailCommon struct {
 
 type santaLinkEmailData struct {
 	emailCommon
-	Greeting, Intro, ButtonText, EditURL, Disclaimer string
+	Greeting, ButtonText, EditURL, Disclaimer string
 }
 
 type santaRevealEmailData struct {
@@ -92,7 +92,6 @@ func renderSantaLinkEmail(lang string, p SantaParticipant, event Event, editURL 
 			LogoURL: logoURLFromBase(baseFromURL(editURL)),
 		},
 		Greeting:   fmt.Sprintf(T("santa_email_greeting", lang), p.FirstName),
-		Intro:      T("santa_email_link_intro", lang),
 		ButtonText: T("santa_email_link_button", lang),
 		EditURL:    editURL,
 		Disclaimer: T("santa_disclaimer", lang),
