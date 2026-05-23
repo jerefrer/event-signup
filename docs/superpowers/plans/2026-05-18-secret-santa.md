@@ -11,6 +11,7 @@
 **Spec:** `docs/superpowers/specs/2026-05-18-secret-santa-design.md`
 
 **Conventions:**
+
 - Every commit message uses Conventional Commits and ends with the trailer:
   `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`
 - Never run `go build ./...` (it leaves a binary). Use `go vet ./...` to check compilation.
@@ -21,6 +22,7 @@
 ### Task 1: Database schema & migration
 
 **Files:**
+
 - Modify: `schema.sql`
 - Modify: `models.go` (Event struct, `eventCols`, `scanEvent`, `InitDB`)
 - Test: `santa_test.go` (create)
@@ -181,6 +183,7 @@ git commit -m "feat(santa): add santa_participants table and santa_drawn_at colu
 ### Task 2: SantaParticipant model & CRUD
 
 **Files:**
+
 - Modify: `models.go` (struct + CRUD functions)
 - Test: `santa_test.go`
 
@@ -426,6 +429,7 @@ git commit -m "feat(santa): add SantaParticipant model and CRUD"
 ### Task 3: Draw algorithm
 
 **Files:**
+
 - Modify: `models.go` (`DrawSecretSanta` + `math/rand` import)
 - Test: `santa_test.go`
 
@@ -555,6 +559,7 @@ git commit -m "feat(santa): add Sattolo draw algorithm"
 ### Task 4: Persist the draw
 
 **Files:**
+
 - Modify: `models.go` (`SaveSantaDraw`)
 - Test: `santa_test.go`
 
@@ -631,6 +636,7 @@ git commit -m "feat(santa): persist draw assignments transactionally"
 ### Task 5: i18n strings
 
 **Files:**
+
 - Modify: `i18n.go`
 
 This task adds translation keys only — no test (data, verified by later rendering tests).
@@ -660,7 +666,7 @@ In the `translations` map in `i18n.go`, add the `secret_santa` value to the exis
 	"santa_wish_buy":        {"fr": "Quelque chose qui peut être acheté (moins de 10 €)", "en": "Something that can be bought (under €10)"},
 	"santa_wish_buy_hint":   {"fr": "Pour ceux qui n'ont pas le temps — un stylo, des chaussettes, du chocolat…", "en": "For those short on time — a pen, socks, chocolate…"},
 	"santa_wish_make":       {"fr": "Quelque chose qui peut être fabriqué ou trouvé", "en": "Something that can be made or found"},
-	"santa_wish_make_hint":  {"fr": "Pour ceux qui n'ont pas d'argent — une plante, un plat, un poème, une prière…", "en": "For those short on money — a plant, a dish, a poem, a prayer…"},
+	"santa_wish_make_hint":  {"fr": "Pour ceux qui n'ont pas d'argent — une plante, un plat, un poème, une prière…", "en": "For those who have time — a plant, a dish, a poem, a prayer…"},
 	"santa_wish_free":       {"fr": "Quelque chose au choix", "en": "Anything you like"},
 	"santa_wish_free_hint":  {"fr": "Ce que vous voulez.", "en": "Whatever you want."},
 	"santa_wishes_required": {"fr": "Les trois souhaits sont obligatoires.", "en": "All three wishes are required."},
@@ -721,6 +727,7 @@ git commit -m "feat(santa): add FR/EN translations"
 ### Task 6: EmailSender interface, LogSender & test fake
 
 **Files:**
+
 - Create: `email.go`
 - Modify: `testutil_test.go` (add `fakeEmailSender`, inject into `testApp`)
 
@@ -815,6 +822,7 @@ git commit -m "feat(santa): add EmailSender interface, LogSender and test fake"
 ### Task 7: Email rendering
 
 **Files:**
+
 - Create: `templates/email_santa_link.html`, `templates/email_santa_reveal.html`
 - Modify: `email.go` (rendering functions)
 - Test: `santa_test.go`
@@ -874,16 +882,24 @@ Expected: FAIL — `undefined: renderSantaLinkEmail`.
 ```html
 <!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"></head>
-<body style="font-family:sans-serif;color:#333;max-width:480px;margin:0 auto;padding:1rem;">
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+  <body
+    style="font-family:sans-serif;color:#333;max-width:480px;margin:0 auto;padding:1rem;"
+  >
     <h2>{{.Title}}</h2>
     <p>{{.Greeting}}</p>
     <p>{{.Intro}}</p>
     <p style="text-align:center;margin:1.5rem 0;">
-        <a href="{{.EditURL}}" style="background:#c0392b;color:#fff;padding:0.75rem 1.5rem;text-decoration:none;border-radius:4px;">{{.ButtonText}}</a>
+      <a
+        href="{{.EditURL}}"
+        style="background:#c0392b;color:#fff;padding:0.75rem 1.5rem;text-decoration:none;border-radius:4px;"
+        >{{.ButtonText}}</a
+      >
     </p>
     <p style="color:#888;font-size:0.85rem;">{{.EventTitle}}</p>
-</body>
+  </body>
 </html>
 ```
 
@@ -892,20 +908,30 @@ Expected: FAIL — `undefined: renderSantaLinkEmail`.
 ```html
 <!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"></head>
-<body style="font-family:sans-serif;color:#333;max-width:480px;margin:0 auto;padding:1rem;">
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+  <body
+    style="font-family:sans-serif;color:#333;max-width:480px;margin:0 auto;padding:1rem;"
+  >
     <h2>{{.Title}}</h2>
     <p>{{.Greeting}}</p>
     <p>{{.Intro}}</p>
-    <p style="font-size:1.3rem;font-weight:bold;text-align:center;margin:1rem 0;">{{.ReceiverName}}</p>
+    <p
+      style="font-size:1.3rem;font-weight:bold;text-align:center;margin:1rem 0;"
+    >
+      {{.ReceiverName}}
+    </p>
     <p>{{.WishesIntro}}</p>
     <ul>
-        <li><strong>{{.WishBuyLabel}}:</strong> {{.WishBuy}}</li>
-        <li><strong>{{.WishMakeLabel}}:</strong> {{.WishMake}}</li>
-        <li><strong>{{.WishFreeLabel}}:</strong> {{.WishFree}}</li>
+      <li><strong>{{.WishBuyLabel}}:</strong> {{.WishBuy}}</li>
+      <li><strong>{{.WishMakeLabel}}:</strong> {{.WishMake}}</li>
+      <li><strong>{{.WishFreeLabel}}:</strong> {{.WishFree}}</li>
     </ul>
-    <p style="margin-top:1.5rem;"><a href="{{.EventURL}}">{{.EventLinkText}}</a></p>
-</body>
+    <p style="margin-top:1.5rem;">
+      <a href="{{.EventURL}}">{{.EventLinkText}}</a>
+    </p>
+  </body>
 </html>
 ```
 
@@ -1007,6 +1033,7 @@ git commit -m "feat(santa): render magic-link and reveal emails"
 ### Task 8: AWS SES sender
 
 **Files:**
+
 - Modify: `email.go` (`SESSender`)
 - Modify: `go.mod`, `go.sum` (dependency)
 
@@ -1093,6 +1120,7 @@ git commit -m "feat(santa): add AWS SES email sender"
 ### Task 9: App struct & main.go wiring
 
 **Files:**
+
 - Modify: `handlers.go` (`App` struct + imports)
 - Modify: `main.go` (EmailSender construction, App fields, imports)
 
@@ -1214,6 +1242,7 @@ git commit -m "feat(santa): wire EmailSender into App and main"
 ### Task 10: Public templates
 
 **Files:**
+
 - Create: `templates/public_santa.html`, `templates/santa_edit.html`
 
 Asset-only task — no test (verified by Task 11's handler tests).
@@ -1221,130 +1250,191 @@ Asset-only task — no test (verified by Task 11's handler tests).
 - [ ] **Step 1: Create `templates/public_santa.html`**
 
 ```html
-{{define "content"}}
-{{$data := .Data}}
-{{$event := index $data "Event"}}
-{{$closed := index $data "Closed"}}
-{{$linkSent := index $data "LinkSent"}}
+{{define "content"}} {{$data := .Data}} {{$event := index $data "Event"}}
+{{$closed := index $data "Closed"}} {{$linkSent := index $data "LinkSent"}}
 
 <div class="event-header">
-    <h1>{{loc $event.TitleFR $event.TitleEN}}</h1>
-    <div class="event-meta">
-        <span class="event-meta-item">&#x1F4C5; {{formatDate $event.EventDate}}</span>
-        {{if $event.EventTime}}<span class="event-meta-item">&#x1F552; {{formatTime $event.EventTime}}</span>{{end}}
-    </div>
-    {{$desc := loc $event.DescriptionFR $event.DescriptionEN}}
-    {{if $desc}}<div class="event-description">{{nl2br $desc}}</div>{{end}}
+  <h1>{{loc $event.TitleFR $event.TitleEN}}</h1>
+  <div class="event-meta">
+    <span class="event-meta-item"
+      >&#x1F4C5; {{formatDate $event.EventDate}}</span
+    >
+    {{if $event.EventTime}}<span class="event-meta-item"
+      >&#x1F552; {{formatTime $event.EventTime}}</span
+    >{{end}}
+  </div>
+  {{$desc := loc $event.DescriptionFR $event.DescriptionEN}} {{if $desc}}
+  <div class="event-description">{{nl2br $desc}}</div>
+  {{end}}
 </div>
 
 {{if $closed}}
-<div class="card"><div class="card-body"><p>{{t "santa_closed"}}</p></div></div>
+<div class="card">
+  <div class="card-body"><p>{{t "santa_closed"}}</p></div>
+</div>
 {{else if $linkSent}}
 <div class="registered-card card">
-    <div class="confirmation-icon" aria-hidden="true">&#x2709;</div>
-    <h2>{{t "santa_link_sent"}}</h2>
+  <div class="confirmation-icon" aria-hidden="true">&#x2709;</div>
+  <h2>{{t "santa_link_sent"}}</h2>
 </div>
 {{else}}
-<form id="santa-register-form" method="POST" action="/santa/register?lang={{lang}}" class="signup-unified">
-    <input type="hidden" name="event_id" value="{{$event.ID}}">
-    <section class="panel">
-        <h2 class="panel-title">{{t "santa_register_title"}}</h2>
-        <div class="panel-body">
-            <p class="form-hint" style="margin-bottom:1rem;">{{t "santa_register_intro"}}</p>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="first_name">{{t "registration_first_name"}} *</label>
-                    <input type="text" id="first_name" name="first_name" required class="form-input" autocomplete="given-name">
-                </div>
-                <div class="form-group">
-                    <label for="last_name">{{t "registration_last_name"}} *</label>
-                    <input type="text" id="last_name" name="last_name" required class="form-input" autocomplete="family-name">
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="email">{{t "registration_email"}} *</label>
-                <input type="email" id="email" name="email" required class="form-input" autocomplete="email">
-            </div>
+<form
+  id="santa-register-form"
+  method="POST"
+  action="/santa/register?lang={{lang}}"
+  class="signup-unified"
+>
+  <input type="hidden" name="event_id" value="{{$event.ID}}" />
+  <section class="panel">
+    <h2 class="panel-title">{{t "santa_register_title"}}</h2>
+    <div class="panel-body">
+      <p class="form-hint" style="margin-bottom:1rem;">
+        {{t "santa_register_intro"}}
+      </p>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="first_name">{{t "registration_first_name"}} *</label>
+          <input
+            type="text"
+            id="first_name"
+            name="first_name"
+            required
+            class="form-input"
+            autocomplete="given-name"
+          />
         </div>
-    </section>
-    <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-envelope"></i> {{t "santa_register_btn"}}</button>
+        <div class="form-group">
+          <label for="last_name">{{t "registration_last_name"}} *</label>
+          <input
+            type="text"
+            id="last_name"
+            name="last_name"
+            required
+            class="form-input"
+            autocomplete="family-name"
+          />
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="email">{{t "registration_email"}} *</label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          required
+          class="form-input"
+          autocomplete="email"
+        />
+      </div>
+    </div>
+  </section>
+  <button type="submit" class="btn btn-primary btn-block">
+    <i class="fa-solid fa-envelope"></i> {{t "santa_register_btn"}}
+  </button>
 </form>
-<div id="santa-continue" style="display:none;text-align:center;margin-top:1rem;">
-    <a id="santa-continue-link" class="btn btn-secondary" href="#"><i class="fa-solid fa-pencil"></i> {{t "santa_continue_btn"}}</a>
+<div
+  id="santa-continue"
+  style="display:none;text-align:center;margin-top:1rem;"
+>
+  <a id="santa-continue-link" class="btn btn-secondary" href="#"
+    ><i class="fa-solid fa-pencil"></i> {{t "santa_continue_btn"}}</a
+  >
 </div>
 <script>
-(function() {
-    try {
-        var tok = localStorage.getItem('santa_' + {{json $event.Slug}});
-        if (tok) {
-            var link = document.getElementById('santa-continue-link');
-            link.href = '/santa/edit?token=' + encodeURIComponent(tok) + '&lang={{lang}}';
-            document.getElementById('santa-continue').style.display = '';
-        }
-    } catch(e) {}
-})();
+  (function() {
+      try {
+          var tok = localStorage.getItem('santa_' + {{json $event.Slug}});
+          if (tok) {
+              var link = document.getElementById('santa-continue-link');
+              link.href = '/santa/edit?token=' + encodeURIComponent(tok) + '&lang={{lang}}';
+              document.getElementById('santa-continue').style.display = '';
+          }
+      } catch(e) {}
+  })();
 </script>
-{{end}}
-{{end}}
-{{template "layout" .}}
+{{end}} {{end}} {{template "layout" .}}
 ```
 
 - [ ] **Step 2: Create `templates/santa_edit.html`**
 
 ```html
-{{define "content"}}
-{{$data := .Data}}
-{{$event := index $data "Event"}}
-{{$p := index $data "Participant"}}
-{{$closed := index $data "Closed"}}
-
-{{if not $event}}
+{{define "content"}} {{$data := .Data}} {{$event := index $data "Event"}} {{$p
+:= index $data "Participant"}} {{$closed := index $data "Closed"}} {{if not
+$event}}
 <p><a href="/">{{t "back"}}</a></p>
 {{else}}
 <div class="event-header">
-    <h1>{{loc $event.TitleFR $event.TitleEN}}</h1>
-    <div class="event-meta">
-        <span class="event-meta-item">&#x1F4C5; {{formatDate $event.EventDate}}</span>
-        {{if $event.EventTime}}<span class="event-meta-item">&#x1F552; {{formatTime $event.EventTime}}</span>{{end}}
-    </div>
+  <h1>{{loc $event.TitleFR $event.TitleEN}}</h1>
+  <div class="event-meta">
+    <span class="event-meta-item"
+      >&#x1F4C5; {{formatDate $event.EventDate}}</span
+    >
+    {{if $event.EventTime}}<span class="event-meta-item"
+      >&#x1F552; {{formatTime $event.EventTime}}</span
+    >{{end}}
+  </div>
 </div>
 {{if $closed}}
-<div class="card"><div class="card-body"><p>{{t "santa_closed"}}</p></div></div>
+<div class="card">
+  <div class="card-body"><p>{{t "santa_closed"}}</p></div>
+</div>
 {{else}}
 <form method="POST" action="/santa/edit?lang={{lang}}" class="signup-unified">
-    <input type="hidden" name="token" value="{{$p.Token}}">
-    <section class="panel">
-        <h2 class="panel-title">{{t "santa_wishes_title"}}</h2>
-        <div class="panel-body">
-            <p style="margin-bottom:1rem;"><strong>{{$p.FirstName}} {{$p.LastName}}</strong></p>
-            <div class="form-group">
-                <label for="wish_buy">{{t "santa_wish_buy"}} *</label>
-                <p class="form-hint">{{t "santa_wish_buy_hint"}}</p>
-                <input type="text" id="wish_buy" name="wish_buy" required class="form-input" value="{{$p.WishBuy}}">
-            </div>
-            <div class="form-group" style="margin-top:1rem;">
-                <label for="wish_make">{{t "santa_wish_make"}} *</label>
-                <p class="form-hint">{{t "santa_wish_make_hint"}}</p>
-                <input type="text" id="wish_make" name="wish_make" required class="form-input" value="{{$p.WishMake}}">
-            </div>
-            <div class="form-group" style="margin-top:1rem;">
-                <label for="wish_free">{{t "santa_wish_free"}} *</label>
-                <p class="form-hint">{{t "santa_wish_free_hint"}}</p>
-                <input type="text" id="wish_free" name="wish_free" required class="form-input" value="{{$p.WishFree}}">
-            </div>
-        </div>
-    </section>
-    <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-check"></i> {{t "santa_wishes_save"}}</button>
+  <input type="hidden" name="token" value="{{$p.Token}}" />
+  <section class="panel">
+    <h2 class="panel-title">{{t "santa_wishes_title"}}</h2>
+    <div class="panel-body">
+      <p style="margin-bottom:1rem;">
+        <strong>{{$p.FirstName}} {{$p.LastName}}</strong>
+      </p>
+      <div class="form-group">
+        <label for="wish_buy">{{t "santa_wish_buy"}} *</label>
+        <p class="form-hint">{{t "santa_wish_buy_hint"}}</p>
+        <input
+          type="text"
+          id="wish_buy"
+          name="wish_buy"
+          required
+          class="form-input"
+          value="{{$p.WishBuy}}"
+        />
+      </div>
+      <div class="form-group" style="margin-top:1rem;">
+        <label for="wish_make">{{t "santa_wish_make"}} *</label>
+        <p class="form-hint">{{t "santa_wish_make_hint"}}</p>
+        <input
+          type="text"
+          id="wish_make"
+          name="wish_make"
+          required
+          class="form-input"
+          value="{{$p.WishMake}}"
+        />
+      </div>
+      <div class="form-group" style="margin-top:1rem;">
+        <label for="wish_free">{{t "santa_wish_free"}} *</label>
+        <p class="form-hint">{{t "santa_wish_free_hint"}}</p>
+        <input
+          type="text"
+          id="wish_free"
+          name="wish_free"
+          required
+          class="form-input"
+          value="{{$p.WishFree}}"
+        />
+      </div>
+    </div>
+  </section>
+  <button type="submit" class="btn btn-primary btn-block">
+    <i class="fa-solid fa-check"></i> {{t "santa_wishes_save"}}
+  </button>
 </form>
 <script>
-(function() {
-    try { localStorage.setItem('santa_' + {{json $event.Slug}}, {{json $p.Token}}); } catch(e) {}
-})();
+  (function() {
+      try { localStorage.setItem('santa_' + {{json $event.Slug}}, {{json $p.Token}}); } catch(e) {}
+  })();
 </script>
-{{end}}
-{{end}}
-{{end}}
-{{template "layout" .}}
+{{end}} {{end}} {{end}} {{template "layout" .}}
 ```
 
 - [ ] **Step 3: Commit**
@@ -1359,6 +1449,7 @@ git commit -m "feat(santa): add public registration and wishes templates"
 ### Task 11: Public handlers
 
 **Files:**
+
 - Modify: `handlers.go` (`handlePublicEvent` santa branch; new `handleSantaRegister`, `handleSantaEdit`)
 - Modify: `main.go` (routes)
 - Modify: `handlers_test.go` (`newMux` routes)
@@ -1665,6 +1756,7 @@ git commit -m "feat(santa): add public registration and wishes handlers"
 ### Task 12: Reveal-email sending
 
 **Files:**
+
 - Modify: `email.go` (`dispatchRevealEmails`, `sendRevealEmails`, `sendWithRetry`)
 - Test: `santa_handlers_test.go`
 
@@ -1866,6 +1958,7 @@ git commit -m "feat(santa): send reveal emails with rate limiting and retry"
 ### Task 13: Admin template & event-edit/list integration
 
 **Files:**
+
 - Create: `templates/admin_santa.html`
 - Modify: `templates/admin_event_edit.html`, `templates/admin_events.html`
 
@@ -1997,63 +2090,93 @@ Asset-only task — verified by Task 14's handler tests.
 In the new-event form's event-type radio group, add a third radio after the `attendance` one:
 
 ```html
-                <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;">
-                    <input type="radio" name="event_type" value="attendance">
-                    {{t "event_type_attendance"}}
-                </label>
-                <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;">
-                    <input type="radio" name="event_type" value="secret_santa">
-                    {{t "event_type_santa"}}
-                </label>
+<label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;">
+  <input type="radio" name="event_type" value="attendance" />
+  {{t "event_type_attendance"}}
+</label>
+<label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;">
+  <input type="radio" name="event_type" value="secret_santa" />
+  {{t "event_type_santa"}}
+</label>
 ```
 
 Then change the type-dispatch block. Replace the line `{{if eq $event.EventType "attendance"}}` (the one starting the attendance summary section) so it reads, and insert a santa branch before the final `{{else}}`:
 
 Find:
+
 ```html
 {{if eq $event.EventType "attendance"}}
 <!-- Attendance Summary -->
 ```
+
 Leave that as-is. Then find the matching `{{else}}` that begins the tasks section:
+
 ```html
-{{else}}
-{{$tree := index $data "Tree"}}
+{{else}} {{$tree := index $data "Tree"}}
 ```
+
 and replace it with:
+
 ```html
-{{else if eq $event.EventType "secret_santa"}}
-{{$santaTotal := index $data "SantaTotal"}}
-{{$santaCompleted := index $data "SantaCompleted"}}
+{{else if eq $event.EventType "secret_santa"}} {{$santaTotal := index $data
+"SantaTotal"}} {{$santaCompleted := index $data "SantaCompleted"}}
 <section class="panel">
-    <div class="panel-header">
-        <h2 class="panel-title">{{t "santa_admin_title"}}</h2>
-    </div>
-    <div class="panel-body">
-        <p style="font-size:1.1rem;"><strong>{{$santaTotal}}</strong> {{t "santa_admin_participants"}} · <strong>{{$santaCompleted}}</strong> {{t "santa_admin_completed"}}</p>
-        <a href="/admin/event/santa?id={{$event.ID}}&lang={{lang}}" class="btn btn-secondary" style="margin-top:0.5rem;"><i class="fa-solid fa-gift"></i> {{t "santa_admin_view"}}</a>
-    </div>
+  <div class="panel-header">
+    <h2 class="panel-title">{{t "santa_admin_title"}}</h2>
+  </div>
+  <div class="panel-body">
+    <p style="font-size:1.1rem;">
+      <strong>{{$santaTotal}}</strong> {{t "santa_admin_participants"}} ·
+      <strong>{{$santaCompleted}}</strong> {{t "santa_admin_completed"}}
+    </p>
+    <a
+      href="/admin/event/santa?id={{$event.ID}}&lang={{lang}}"
+      class="btn btn-secondary"
+      style="margin-top:0.5rem;"
+      ><i class="fa-solid fa-gift"></i> {{t "santa_admin_view"}}</a
+    >
+  </div>
 </section>
-{{else}}
-{{$tree := index $data "Tree"}}
+{{else}} {{$tree := index $data "Tree"}}
 ```
 
 - [ ] **Step 3: Add santa branches to `templates/admin_events.html`**
 
 In the `card-meta` paragraph, extend the type badge:
+
 ```html
-                    {{if eq .EventType "attendance"}} · <span class="badge badge-info">{{t "event_type_attendance"}}</span>{{end}}
-                    {{if eq .EventType "secret_santa"}} · <span class="badge badge-info">{{t "event_type_santa"}}</span>{{end}}
+{{if eq .EventType "attendance"}} ·
+<span class="badge badge-info">{{t "event_type_attendance"}}</span>{{end}} {{if
+eq .EventType "secret_santa"}} ·
+<span class="badge badge-info">{{t "event_type_santa"}}</span>{{end}}
 ```
 
 In `card-actions`, change the `{{if eq .EventType "attendance"}} ... {{else}} ... {{end}}` to add a santa branch:
+
 ```html
-            {{if eq .EventType "attendance"}}
-            <a href="/admin/event/attendances?id={{.ID}}&lang={{lang}}" class="btn btn-sm btn-secondary">{{t "section_attendances"}}{{if .RegCount}} <span class="count-badge count-yes">&#x2713; {{.AttendanceYes}}</span> <span class="count-badge count-no">&#x2717; {{.AttendanceNo}}</span>{{end}}</a>
-            {{else if eq .EventType "secret_santa"}}
-            <a href="/admin/event/santa?id={{.ID}}&lang={{lang}}" class="btn btn-sm btn-secondary"><i class="fa-solid fa-gift"></i> {{t "santa_admin_title"}}{{if .RegCount}} <span class="count-badge">{{.RegCount}}</span>{{end}}</a>
-            {{else}}
-            <a href="/admin/event/registrations?id={{.ID}}&lang={{lang}}" class="btn btn-sm btn-secondary">{{t "section_registrations"}}{{if .RegCount}} <span class="count-badge">{{.RegCount}}</span>{{end}}</a>
-            {{end}}
+{{if eq .EventType "attendance"}}
+<a
+  href="/admin/event/attendances?id={{.ID}}&lang={{lang}}"
+  class="btn btn-sm btn-secondary"
+  >{{t "section_attendances"}}{{if .RegCount}}
+  <span class="count-badge count-yes">&#x2713; {{.AttendanceYes}}</span>
+  <span class="count-badge count-no">&#x2717; {{.AttendanceNo}}</span>{{end}}</a
+>
+{{else if eq .EventType "secret_santa"}}
+<a
+  href="/admin/event/santa?id={{.ID}}&lang={{lang}}"
+  class="btn btn-sm btn-secondary"
+  ><i class="fa-solid fa-gift"></i> {{t "santa_admin_title"}}{{if .RegCount}}
+  <span class="count-badge">{{.RegCount}}</span>{{end}}</a
+>
+{{else}}
+<a
+  href="/admin/event/registrations?id={{.ID}}&lang={{lang}}"
+  class="btn btn-sm btn-secondary"
+  >{{t "section_registrations"}}{{if .RegCount}}
+  <span class="count-badge">{{.RegCount}}</span>{{end}}</a
+>
+{{end}}
 ```
 
 - [ ] **Step 4: Commit**
@@ -2068,6 +2191,7 @@ git commit -m "feat(santa): add admin santa template and event-list integration"
 ### Task 14: Admin handlers
 
 **Files:**
+
 - Modify: `handlers.go` (`handleAdminEventNew`, `handleAdminEvents`, `eventEditData`; new santa admin handlers)
 - Modify: `main.go` (routes)
 - Modify: `handlers_test.go` (`newMux` routes)
@@ -2215,7 +2339,9 @@ In `handlers.go`, in `handleAdminEventNew`, change:
 			eventType = "tasks"
 		}
 ```
+
 to:
+
 ```go
 		eventType := r.FormValue("event_type")
 		if eventType != "attendance" && eventType != "secret_santa" {
@@ -2462,6 +2588,7 @@ Expected: `ok  event-signup` — all tests PASS, no race warnings.
 Run the app: `EVENT_SIGNUP_ADMIN_PASSWORD=test go run .` (no `EVENT_SIGNUP_EMAIL_FROM`, so emails are logged).
 
 Verify in a browser:
+
 1. `/admin` → log in → create a new event, type **Secret Santa**.
 2. Open the public link `/e/<slug>` → register with a name + email → confirm the "check your email" message appears and the magic link is printed in the server log.
 3. Open the logged `/santa/edit?token=…` URL → fill the 3 wishes → save → confirm the success message.
@@ -2487,9 +2614,3 @@ git commit -m "chore(santa): tidy module dependencies"
 **Deviation from spec** — the `EmailSender.Send` signature omits the `textBody` parameter from spec §7.1: emails are HTML-only (valid for SES `SendEmail`; a text part can be added later without an interface change). This keeps the email templates to one file each.
 
 **Type consistency** — `SantaParticipant`, `DrawSecretSanta(ids []int64, rng *mrand.Rand)`, `SaveSantaDraw`, `UpsertSantaParticipant`, `SaveSantaWishes`, `MarkRevealEmailSent`, `EmailSender.Send(ctx, to, subject, htmlBody)`, `App.{Email,EmailSendDelay,AsyncEmail,sending}` are used identically across all tasks.
-
-
-
-
-
-
