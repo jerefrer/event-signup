@@ -218,6 +218,7 @@ var translations = map[string]Translations{
 	"santa_admin_assigned_to":          {"fr": "Offre à", "en": "Gives to"},
 	"santa_admin_completed_col":        {"fr": "Liste complétée", "en": "List completed"},
 	"santa_admin_delete_confirm":       {"fr": "Supprimer ce participant ?", "en": "Delete this participant?"},
+	"santa_admin_copy_link":            {"fr": "Copier le lien du formulaire", "en": "Copy form link"},
 	"santa_admin_no_participants":      {"fr": "Aucun inscrit.", "en": "No participants yet."},
 	"santa_admin_yes":                  {"fr": "Oui", "en": "Yes"},
 	"santa_admin_no":                   {"fr": "Non", "en": "No"},

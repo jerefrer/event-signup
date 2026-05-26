@@ -53,6 +53,17 @@ function copyLink() {
     }
 }
 
+// Copy an individual participant's wish-list form link (admin shares it
+// manually when email isn't an option).
+function copySantaLink(btn) {
+    var url = btn.getAttribute('data-link');
+    if (!url) return;
+    navigator.clipboard.writeText(url);
+    var orig = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+    setTimeout(function() { btn.innerHTML = orig; }, 1500);
+}
+
 // ---- Auto-save event details ----
 
 var saveEvent = debounce(function(eventId) {
