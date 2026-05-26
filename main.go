@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"io/fs"
 	"log"
 	"net/http"
@@ -24,6 +25,36 @@ var schemaSQL string
 func sha256Sum(data []byte) []byte {
 	h := sha256.Sum256(data)
 	return h[:]
+}
+
+// staticBuildID is a short hash of every file in the embedded staticFS,
+// used as a ?v= query string on <script>/<link> tags so browsers refetch
+// JS/CSS after a deploy that actually changes them — and reuse their cache
+// when it doesn't.
+var staticBuildID = computeStaticBuildID()
+
+func computeStaticBuildID() string {
+	h := sha256.New()
+	err := fs.WalkDir(staticFS, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		data, rerr := staticFS.ReadFile(path)
+		if rerr != nil {
+			return rerr
+		}
+		h.Write([]byte(path))
+		h.Write([]byte{0})
+		h.Write(data)
+		return nil
+	})
+	if err != nil {
+		return "dev"
+	}
+	return hex.EncodeToString(h.Sum(nil)[:4])
 }
 
 func main() {

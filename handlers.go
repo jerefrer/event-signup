@@ -96,6 +96,7 @@ func (app *App) render(w http.ResponseWriter, r *http.Request, tmpl string, data
 
 func (app *App) buildFuncs(lang string) template.FuncMap {
 	funcs := TemplateFuncs(lang)
+	funcs["buildID"] = func() string { return staticBuildID }
 	funcs["safeHTML"] = func(s string) template.HTML { return template.HTML(s) }
 	funcs["nl2br"] = func(s string) template.HTML {
 		return template.HTML(strings.ReplaceAll(template.HTMLEscapeString(s), "\n", "<br>"))
