@@ -317,12 +317,14 @@
                             <td>{{template "santa-email-badge" (index $revealStatus .ID)}}</td>
                             {{else}}
                             <td>
-                                <button type="button" class="btn btn-sm btn-secondary" title="{{t "santa_admin_copy_link"}}" data-link="{{index $data "BaseURL"}}/santa/edit?token={{.Token}}&lang={{.Lang}}" data-copied="{{t "event_copied"}}" onclick="copySantaLink(this)"><i class="fa-solid fa-link"></i></button>
-                                <form method="POST" action="/admin/santa/participant/delete?lang={{lang}}" class="inline-form" onsubmit="return confirm('{{t "santa_admin_delete_confirm"}}')">
-                                    <input type="hidden" name="id" value="{{.ID}}">
-                                    <input type="hidden" name="event_id" value="{{$event.ID}}">
-                                    <button type="submit" class="btn btn-sm btn-danger"><i class="fa-solid fa-trash"></i></button>
-                                </form>
+                                <div class="row-actions-split">
+                                    <button type="button" class="btn btn-sm btn-secondary btn-icon-sm" title="{{t "santa_admin_copy_link"}}" data-link="{{index $data "BaseURL"}}/santa/edit?token={{.Token}}&lang={{.Lang}}" data-copied="{{t "event_copied"}}" onclick="copySantaLink(this)"><i class="fa-solid fa-link"></i></button>
+                                    <form method="POST" action="/admin/santa/participant/delete?lang={{lang}}" class="inline-form" onsubmit="return confirm('{{t "santa_admin_delete_confirm"}}')">
+                                        <input type="hidden" name="id" value="{{.ID}}">
+                                        <input type="hidden" name="event_id" value="{{$event.ID}}">
+                                        <button type="submit" class="btn btn-sm btn-danger btn-icon-sm"><i class="fa-solid fa-trash"></i></button>
+                                    </form>
+                                </div>
                             </td>
                             {{end}}
                         </tr>

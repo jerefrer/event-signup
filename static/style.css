@@ -118,7 +118,9 @@ main.container { flex: 1; padding-top: 2rem; padding-bottom: 3rem; }
 .btn-danger:hover { background: var(--color-danger-dark); }
 /* min-height keeps small buttons the same height whether or not they contain a count-badge (1.5rem tall) */
 .btn-sm { padding: 0.3125rem 0.625rem; font-size: var(--text-xs); min-height: 2.25rem; }
+.btn-icon-sm { width: 2.25rem; padding: 0; }
 .btn-block { display: flex; width: 100%; }
+.row-actions-split { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 .btn:disabled:hover { background: var(--color-primary); }
 
