@@ -88,7 +88,18 @@ function initEventAutoSave() {
     var eventId = parseInt(form.dataset.eventId);
     form.addEventListener('input', function() { saveEvent(eventId); });
     form.addEventListener('change', function() { saveEvent(eventId); });
+    // Trix updates its backing hidden input programmatically, which does not
+    // fire 'input' on a hidden field. Wire the editor's own 'trix-change'
+    // event to the same debounced saver.
+    form.addEventListener('trix-change', function() { saveEvent(eventId); });
 }
+
+// Reject file/image attachments anywhere a Trix editor is mounted. CSS also
+// hides the file-tools button, but a user could still drag-drop a file or
+// paste an image — this guard removes the attachment as soon as Trix sees it.
+document.addEventListener('trix-attachment-add', function(event) {
+    if (event.attachment) event.attachment.remove();
+});
 
 // ---- Auto-save groups ----
 

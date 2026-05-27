@@ -245,8 +245,8 @@ func TestRenderSantaEmails(t *testing.T) {
 	e := Event{
 		TitleFR:       "Noël",
 		TitleEN:       "Christmas",
-		DescriptionFR: "Rendez-vous à 11h\nsous le grand chêne.",
-		DescriptionEN: "Meet at 11am\nunder the big oak.",
+		DescriptionFR: "<p>Rendez-vous à 11h <strong>sous le grand chêne</strong>.</p>",
+		DescriptionEN: "<p>Meet at 11am <strong>under the big oak</strong>.</p>",
 		Slug:          "noel",
 	}
 	giver := SantaParticipant{FirstName: "Alice", LastName: "Dupont", Email: "alice@t.com"}
@@ -260,10 +260,10 @@ func TestRenderSantaEmails(t *testing.T) {
 	for _, want := range []string{
 		"http://x/santa/edit?token=abc",
 		"Alice",
-		"invité",          // from santa_email_link_hook (FR)
-		"Comment ça marche",
-		"3 souhaits",      // from santa_email_how_step1 (FR)
-		"Rendez-vous à 11h<br>sous le grand chêne.", // event description with nl2br applied
+		"invité",                                                       // from santa_email_link_hook (FR)
+		"Comment ça marche",                                            // from santa_email_how_title (FR)
+		"3 souhaits",                                                   // from santa_email_how_step1 (FR)
+		"<p>Rendez-vous à 11h <strong>sous le grand chêne</strong>.</p>", // description rendered as-is
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("link email is missing %q", want)

@@ -13,7 +13,7 @@
     </div>
     {{$desc := loc $event.DescriptionFR $event.DescriptionEN}}
     {{if $desc}}
-    <div class="event-description">{{nl2br $desc}}</div>
+    <div class="event-description">{{safeHTML $desc}}</div>
     {{end}}
 </div>
 

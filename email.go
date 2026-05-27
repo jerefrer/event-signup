@@ -132,8 +132,8 @@ func baseFromURL(s string) string {
 // renderSantaLinkEmail builds the magic-link email in the given language.
 func renderSantaLinkEmail(lang string, p SantaParticipant, event Event, editURL string) (subject, html string) {
 	eventTitle := Localized(event.TitleFR, event.TitleEN, lang)
-	descRaw := Localized(event.DescriptionFR, event.DescriptionEN, lang)
-	desc := template.HTML(strings.ReplaceAll(template.HTMLEscapeString(descRaw), "\n", "<br>"))
+	// Description is admin-authored HTML, sanitized at save time — render as-is.
+	desc := template.HTML(Localized(event.DescriptionFR, event.DescriptionEN, lang))
 	data := santaLinkEmailData{
 		emailCommon: emailCommon{
 			Lang:    lang,

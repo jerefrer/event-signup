@@ -60,6 +60,9 @@
 {{$event := index $data "Event"}}
 {{$isNew := index $data "IsNew"}}
 
+<link rel="stylesheet" href="/static/trix.css?v={{buildID}}">
+<script type="text/javascript" src="/static/trix.umd.min.js?v={{buildID}}" defer></script>
+
 <div class="admin-header">
     <div class="header-left">
         <a href="/admin?lang={{lang}}" class="btn-back" title="{{t "back"}}"><i class="fa-solid fa-arrow-left"></i></a>
@@ -98,12 +101,14 @@
         </div>
         <div class="form-row">
             <div class="form-group">
-                <label for="description_fr">{{t "event_desc_fr"}}</label>
-                <textarea id="description_fr" name="description_fr" rows="4" class="form-input event-desc-textarea">{{$event.DescriptionFR}}</textarea>
+                <label for="description_fr_editor">{{t "event_desc_fr"}}</label>
+                <input id="description_fr" name="description_fr" type="hidden" value="{{$event.DescriptionFR}}">
+                <trix-editor id="description_fr_editor" input="description_fr" class="event-desc-editor"></trix-editor>
             </div>
             <div class="form-group">
-                <label for="description_en">{{t "event_desc_en"}}</label>
-                <textarea id="description_en" name="description_en" rows="4" class="form-input event-desc-textarea">{{$event.DescriptionEN}}</textarea>
+                <label for="description_en_editor">{{t "event_desc_en"}}</label>
+                <input id="description_en" name="description_en" type="hidden" value="{{$event.DescriptionEN}}">
+                <trix-editor id="description_en_editor" input="description_en" class="event-desc-editor"></trix-editor>
             </div>
         </div>
         <div class="form-group" style="margin-top:0.75rem;">
@@ -151,12 +156,14 @@
         </div>
         <div class="form-row">
             <div class="form-group">
-                <label for="description_fr">{{t "event_desc_fr"}}</label>
-                <textarea id="description_fr" rows="4" class="form-input event-desc-textarea">{{$event.DescriptionFR}}</textarea>
+                <label for="description_fr_editor">{{t "event_desc_fr"}}</label>
+                <input id="description_fr" type="hidden" value="{{$event.DescriptionFR}}">
+                <trix-editor id="description_fr_editor" input="description_fr" class="event-desc-editor"></trix-editor>
             </div>
             <div class="form-group">
-                <label for="description_en">{{t "event_desc_en"}}</label>
-                <textarea id="description_en" rows="4" class="form-input event-desc-textarea">{{$event.DescriptionEN}}</textarea>
+                <label for="description_en_editor">{{t "event_desc_en"}}</label>
+                <input id="description_en" type="hidden" value="{{$event.DescriptionEN}}">
+                <trix-editor id="description_en_editor" input="description_en" class="event-desc-editor"></trix-editor>
             </div>
         </div>
         <div class="public-link-inline" style="margin-top:0.75rem;">

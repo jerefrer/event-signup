@@ -5,13 +5,20 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"html/template"
 	mrand "math/rand"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
+
+// htmlTagPattern matches the start of an HTML tag (`<` immediately followed
+// by a letter). Used to tell admin-typed plain text apart from Trix-saved
+// HTML — a bare `<` in plain text ("5 < 10") does not match.
+var htmlTagPattern = regexp.MustCompile(`<[a-zA-Z/]`)
 
 type Event struct {
 	ID            int64
@@ -121,8 +128,92 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		return nil, fmt.Errorf("schema init: %w", err)
 	}
 
+	// One-off data migrations for the event description field, now that it
+	// stores HTML (Trix-edited) instead of plain text. Idempotent — safe to
+	// run on every startup.
+	migrateEventDescriptions(db)
+
 	return db, nil
 }
+
+// migrateEventDescriptions backfills event description data after the
+// switch to rich-text (HTML) storage. Two steps:
+//
+//  1. If the late-May-2026 Secret Santa event still has an empty description,
+//     populate it with the content that used to be hardcoded in the magic-link
+//     email template. Keyed on event type + date range so it can only fire for
+//     that one event, and only once (the WHERE clause filters out non-empty
+//     descriptions on subsequent runs).
+//
+//  2. Wrap any other event's plain-text description in <p>/<br> so it renders
+//     correctly under the new HTML rendering path. Plain text is detected by
+//     absence of '<' — any HTML stored by the Trix editor would contain it.
+func migrateEventDescriptions(db *sql.DB) {
+	db.Exec(
+		`UPDATE events
+		 SET description_fr = ?, description_en = ?
+		 WHERE event_type = 'secret_santa'
+		   AND (description_fr IS NULL OR description_fr = '')
+		   AND event_date BETWEEN '2026-05-25' AND '2026-06-05'`,
+		sagaDawaDescriptionFR, sagaDawaDescriptionEN,
+	)
+
+	rows, err := db.Query(`SELECT id, description_fr, description_en FROM events`)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	type evDesc struct {
+		ID     int64
+		FR, EN string
+	}
+	var pending []evDesc
+	for rows.Next() {
+		var r evDesc
+		if err := rows.Scan(&r.ID, &r.FR, &r.EN); err == nil {
+			pending = append(pending, r)
+		}
+	}
+	for _, r := range pending {
+		newFR, frChanged := wrapPlainTextDescription(r.FR)
+		newEN, enChanged := wrapPlainTextDescription(r.EN)
+		if frChanged || enChanged {
+			db.Exec(`UPDATE events SET description_fr = ?, description_en = ? WHERE id = ?`,
+				newFR, newEN, r.ID)
+		}
+	}
+}
+
+// wrapPlainTextDescription converts a plain-text description into the
+// HTML layout Trix would produce: blank-line-separated paragraphs become
+// <p>…</p>, single newlines become <br>. Returns the input unchanged
+// (and changed=false) when it already contains HTML or is empty.
+func wrapPlainTextDescription(text string) (string, bool) {
+	if text == "" || htmlTagPattern.MatchString(text) {
+		return text, false
+	}
+	var out strings.Builder
+	for _, para := range strings.Split(text, "\n\n") {
+		para = strings.TrimSpace(para)
+		if para == "" {
+			continue
+		}
+		out.WriteString("<p>")
+		out.WriteString(strings.ReplaceAll(template.HTMLEscapeString(para), "\n", "<br>"))
+		out.WriteString("</p>")
+	}
+	return out.String(), true
+}
+
+// sagaDawaDescriptionFR / sagaDawaDescriptionEN preserve the event-specific
+// logistics that used to live in templates/email_santa_link.html so the
+// organizer doesn't have to retype them after deploying the generic email
+// template. Trix-compatible HTML: only <p>, <strong>, <em>, <ul>, <li>.
+// <u> underlines (used in the original for dates) are mapped to <strong>
+// since Trix has no underline; everything else is preserved verbatim.
+const sagaDawaDescriptionFR = `<p>Voici un email de rappel concernant la célébration du Saga Dawa, ce dimanche 31 mai.</p><p><em>Merci de ne pas partager ni transférer l'invitation que vous avez reçue à d'autres personnes, en particulier sur les réseaux sociaux, car il s'agit d'un événement sur mesure avec un nombre de places limité.</em></p><p>Veuillez <strong>vous garer dans la partie supérieure du grand parking situé en contrebas de La Sonnerie</strong>, qui a été tondu.</p><p>Nous nous retrouverons à <strong>11 h</strong> <strong>sous le grand chêne</strong>, dans le champ situé à côté du site des enseignements d'été.</p><p>Le sol n'est pas plat et descend en pente vers l'arbre, <strong>veuillez porter des chaussures adaptées</strong>.</p><p>Nous recouvrirons le sol de tapis et de couvertures pour le rendre aussi confortable que possible. N'hésitez pas à apporter vos propres <strong>coussins</strong> si vous en avez, ainsi que <strong>des chaises pliantes</strong> pour ceux qui le souhaitent (il y aura quelques chaises sur place).</p><p><strong>N'oubliez pas :</strong></p><ul><li>de mettre <strong>du répulsif à insectes</strong>, au cas où ;</li><li>d'apporter votre propre <strong>bol, fourchette/cuillère et tasse</strong> pour le thé. Nous fournirons des assiettes et des gobelets en papier ;</li><li>d'apporter <strong>quelque chose à manger</strong> à partager et/ou des boissons.</li></ul><p>À <strong>11h15</strong>, nous lirons en français <strong>les pages 86 à 102</strong> de <strong>« Le Soleil de la confiance »</strong> (voir pièce jointe ou apportez votre propre livre, si vous l'avez), qui relatent les six années d'ascèse de Siddhartha, sa décision de suivre la voie du milieu et son illumination qui s'ensuivit. Nous ferons une pause pour déguster le riz au lait lorsque nous arriverons à la partie correspondante de l'histoire.</p><p>Vers midi, la chorale de Chanteloube chantera quelques chants, suivis, pour ceux qui souhaitent y participer, de notre échange de cadeaux et d'un déjeuner partagé.</p><p><em>Comme Saga Dawa commémore la naissance, l'illumination et le parinirvana du Bouddha, c'est le moment idéal pour pratiquer la générosité, en particulier envers ceux avec qui nous n'avons pas l'habitude d'interagir.</em></p>`
+
+const sagaDawaDescriptionEN = `<p>This is a reminder for the Saga Dawa celebration, this Sunday 31st May.</p><p><em>Please don't share or forward the invitation you received to others, especially on social media, as this is a tailored event with limited capacity.</em></p><p>Please <strong>park in the upper section of the large parking below La Sonnerie</strong> — it has been mown.</p><p>We will meet at <strong>11am</strong> <strong>under the big oak tree</strong>, in the field next to the site of the summer teachings.</p><p>The ground is not level and slopes downwards towards the tree, so <strong>please bring sensible shoes</strong>.</p><p>We will cover the ground with mats and rugs to make it as comfortable as possible. Please do bring along your own <strong>cushions</strong> if you have them, and <strong>folding chairs</strong> for those who prefer (there will be a few chairs on site).</p><p><strong>Don't forget:</strong></p><ul><li>to put on <strong>insect repellent</strong>, just in case;</li><li>to bring your own <strong>bowl, fork/spoon and mug</strong> for tea. We will provide paper plates and cups;</li><li>to bring <strong>something to eat</strong> which can be shared and/or drinks.</li></ul><p>At <strong>11:15</strong> we will read from <strong>« Le Soleil de la confiance », pages 86 to 102</strong>, in French (see the attachment, or bring along your own book if you have it): the account of Siddhartha's six-year period of austerities, his decision to follow the middle way and his ensuing enlightenment. We will pause to take the offering of rice pudding when we reach the corresponding part in the story.</p><p>Around noon there will be songs from the Chanteloube choir, followed — for those who wish to participate — by our present exchange and a shared lunch.</p><p><em>As Saga Dawa commemorates the birth, enlightenment and parinirvana of the Buddha, it is an ideal time to practice generosity, especially towards those we may not normally interact with.</em></p>`
 
 func migrateColumn(db *sql.DB, table, column, ddl string) {
 	var found bool

@@ -306,8 +306,8 @@ func (app *App) handleAdminEventNew(w http.ResponseWriter, r *http.Request) {
 		e := &Event{
 			TitleFR:       r.FormValue("title_fr"),
 			TitleEN:       r.FormValue("title_en"),
-			DescriptionFR: r.FormValue("description_fr"),
-			DescriptionEN: r.FormValue("description_en"),
+			DescriptionFR: sanitizeEventDescription(r.FormValue("description_fr")),
+			DescriptionEN: sanitizeEventDescription(r.FormValue("description_en")),
 			EventDate:     r.FormValue("event_date"),
 			EventTime:     r.FormValue("event_time"),
 			EventType:     eventType,
@@ -346,8 +346,8 @@ func (app *App) handleAdminEventEdit(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		event.TitleFR = r.FormValue("title_fr")
 		event.TitleEN = r.FormValue("title_en")
-		event.DescriptionFR = r.FormValue("description_fr")
-		event.DescriptionEN = r.FormValue("description_en")
+		event.DescriptionFR = sanitizeEventDescription(r.FormValue("description_fr"))
+		event.DescriptionEN = sanitizeEventDescription(r.FormValue("description_en"))
 		event.EventDate = r.FormValue("event_date")
 		event.EventTime = r.FormValue("event_time")
 
@@ -637,7 +637,7 @@ func (app *App) handleAPIEventSave(w http.ResponseWriter, r *http.Request) {
 	}
 	e := &Event{
 		ID: req.EventID, TitleFR: req.TitleFR, TitleEN: req.TitleEN,
-		DescriptionFR: req.DescriptionFR, DescriptionEN: req.DescriptionEN,
+		DescriptionFR: sanitizeEventDescription(req.DescriptionFR), DescriptionEN: sanitizeEventDescription(req.DescriptionEN),
 		EventDate: req.EventDate, EventTime: req.EventTime, EventType: eventType,
 	}
 	if err := UpdateEvent(app.DB, e); err != nil {

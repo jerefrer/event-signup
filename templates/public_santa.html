@@ -11,7 +11,7 @@
         {{if $event.EventTime}}<span class="event-meta-item">&#x1F552; {{formatTime $event.EventTime}}</span>{{end}}
     </div>
     {{$desc := loc $event.DescriptionFR $event.DescriptionEN}}
-    {{if $desc}}<div class="event-description">{{nl2br $desc}}</div>{{end}}
+    {{if $desc}}<div class="event-description">{{safeHTML $desc}}</div>{{end}}
 </div>
 
 {{if $closed}}
