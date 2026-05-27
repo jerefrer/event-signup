@@ -335,6 +335,37 @@ textarea.event-desc-textarea { min-height: 12rem; }
     padding-top: 0.55rem;
 }
 
+/* Live email preview — two iframes side by side, stacked on small screens */
+.email-preview-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+@media (max-width: 1000px) {
+    .email-preview-pair { grid-template-columns: 1fr; }
+}
+.email-preview-wrap {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 0.6rem;
+}
+.email-preview-lang {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-secondary);
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+}
+.email-preview-iframe {
+    width: 100%;
+    height: 640px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: #FFFFFF;
+}
+
 /* Trix rich-text editor for event descriptions — styled to match form-input */
 trix-editor.event-desc-editor {
     width: 100%;

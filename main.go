@@ -157,6 +157,7 @@ func main() {
 	mux.HandleFunc("/admin/api/max-slots", app.requireAdmin(app.handleAPIUpdateMaxSlots))
 	mux.HandleFunc("/admin/api/ai-parse", app.requireAdmin(app.handleAdminAIParse))
 	mux.HandleFunc("/admin/api/event/save", app.requireAdmin(app.handleAPIEventSave))
+	mux.HandleFunc("/admin/api/event/email-preview", app.requireAdmin(app.handleAPIEventEmailPreview))
 	mux.HandleFunc("/admin/api/group/create", app.requireAdmin(app.handleAPIGroupCreate))
 	mux.HandleFunc("/admin/api/group/save", app.requireAdmin(app.handleAPIGroupSave))
 	mux.HandleFunc("/admin/api/group/delete", app.requireAdmin(app.handleAPIGroupDelete))

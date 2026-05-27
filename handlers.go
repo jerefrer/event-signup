@@ -676,6 +676,73 @@ func (app *App) handleAPIEventSave(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"ok":true}`))
 }
 
+// handleAPIEventEmailPreview renders the magic-link email twice (FR + EN)
+// using the current form state — including unsaved overrides and the
+// live description — so the admin sees exactly what a participant would
+// receive. Driven from admin.js on every form change (debounced).
+func (app *App) handleAPIEventEmailPreview(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, 405)
+		return
+	}
+	var req struct {
+		EventID           int64  `json:"event_id"`
+		TitleFR           string `json:"title_fr"`
+		TitleEN           string `json:"title_en"`
+		DescriptionFR     string `json:"description_fr"`
+		DescriptionEN     string `json:"description_en"`
+		EventDate         string `json:"event_date"`
+		EmailHookFR       string `json:"email_hook_fr"`
+		EmailHookEN       string `json:"email_hook_en"`
+		EmailHowTitleFR   string `json:"email_how_title_fr"`
+		EmailHowTitleEN   string `json:"email_how_title_en"`
+		EmailHowStep1FR   string `json:"email_how_step1_fr"`
+		EmailHowStep1EN   string `json:"email_how_step1_en"`
+		EmailHowStep2FR   string `json:"email_how_step2_fr"`
+		EmailHowStep2EN   string `json:"email_how_step2_en"`
+		EmailHowStep3FR   string `json:"email_how_step3_fr"`
+		EmailHowStep3EN   string `json:"email_how_step3_en"`
+		EmailButtonFR     string `json:"email_button_fr"`
+		EmailButtonEN     string `json:"email_button_en"`
+		EmailDisclaimerFR string `json:"email_disclaimer_fr"`
+		EmailDisclaimerEN string `json:"email_disclaimer_en"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"bad request"}`, 400)
+		return
+	}
+	e := Event{
+		ID:                req.EventID,
+		TitleFR:           req.TitleFR,
+		TitleEN:           req.TitleEN,
+		DescriptionFR:     sanitizeEventDescription(req.DescriptionFR),
+		DescriptionEN:     sanitizeEventDescription(req.DescriptionEN),
+		EventDate:         req.EventDate,
+		Slug:              "preview",
+		EmailHookFR:       req.EmailHookFR,
+		EmailHookEN:       req.EmailHookEN,
+		EmailHowTitleFR:   req.EmailHowTitleFR,
+		EmailHowTitleEN:   req.EmailHowTitleEN,
+		EmailHowStep1FR:   req.EmailHowStep1FR,
+		EmailHowStep1EN:   req.EmailHowStep1EN,
+		EmailHowStep2FR:   req.EmailHowStep2FR,
+		EmailHowStep2EN:   req.EmailHowStep2EN,
+		EmailHowStep3FR:   req.EmailHowStep3FR,
+		EmailHowStep3EN:   req.EmailHowStep3EN,
+		EmailButtonFR:     req.EmailButtonFR,
+		EmailButtonEN:     req.EmailButtonEN,
+		EmailDisclaimerFR: req.EmailDisclaimerFR,
+		EmailDisclaimerEN: req.EmailDisclaimerEN,
+	}
+	base := baseURLFor(r)
+	pFR := SantaParticipant{FirstName: "Marie"}
+	pEN := SantaParticipant{FirstName: "Mary"}
+	_, frHTML := renderSantaLinkEmail("fr", pFR, e, base+"/santa/edit?token=preview")
+	_, enHTML := renderSantaLinkEmail("en", pEN, e, base+"/santa/edit?token=preview")
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"fr": frHTML, "en": enHTML})
+}
+
 func (app *App) handleAPIGroupCreate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, `{"error":"method not allowed"}`, 405)

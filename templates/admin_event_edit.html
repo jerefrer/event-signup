@@ -250,6 +250,24 @@
     </div>
 </details>
 
+<!-- Live email preview — updated by admin.js whenever any form field changes. -->
+<section class="panel" id="email-preview-panel" data-event-id="{{$event.ID}}">
+    <h2 class="panel-title">{{t "email_preview_title"}}</h2>
+    <div class="panel-body">
+        <p class="form-hint" style="margin-bottom:1rem;">{{t "email_preview_intro"}}</p>
+        <div class="email-preview-pair">
+            <div class="email-preview-wrap">
+                <div class="email-preview-lang">{{t "email_field_lang_fr"}}</div>
+                <iframe id="email-preview-fr" class="email-preview-iframe" title="Email preview FR" sandbox="allow-same-origin"></iframe>
+            </div>
+            <div class="email-preview-wrap">
+                <div class="email-preview-lang">{{t "email_field_lang_en"}}</div>
+                <iframe id="email-preview-en" class="email-preview-iframe" title="Email preview EN" sandbox="allow-same-origin"></iframe>
+            </div>
+        </div>
+    </div>
+</section>
+
 <!-- 1. Participants -->
 <section class="panel">
     <h2 class="panel-title">{{t "santa_admin_section_participants"}}</h2>

@@ -132,6 +132,66 @@ document.addEventListener('trix-attachment-add', function(event) {
     if (event.attachment) event.attachment.remove();
 });
 
+// ---- Live email preview ----
+
+// Build the same payload as saveEvent, then ask the server to render the
+// magic-link email for both languages. The server uses sample participant
+// data but every customizable string + the description come straight from
+// the form, so the admin sees exactly what a participant would receive.
+var refreshEmailPreview = debounce(function(eventId) {
+    var data = {
+        event_id: eventId,
+        title_fr: fieldValue('title_fr'),
+        title_en: fieldValue('title_en'),
+        description_fr: fieldValue('description_fr'),
+        description_en: fieldValue('description_en'),
+        event_date: fieldValue('event_date'),
+        email_hook_fr: fieldValue('email_hook_fr'),
+        email_hook_en: fieldValue('email_hook_en'),
+        email_how_title_fr: fieldValue('email_how_title_fr'),
+        email_how_title_en: fieldValue('email_how_title_en'),
+        email_how_step1_fr: fieldValue('email_how_step1_fr'),
+        email_how_step1_en: fieldValue('email_how_step1_en'),
+        email_how_step2_fr: fieldValue('email_how_step2_fr'),
+        email_how_step2_en: fieldValue('email_how_step2_en'),
+        email_how_step3_fr: fieldValue('email_how_step3_fr'),
+        email_how_step3_en: fieldValue('email_how_step3_en'),
+        email_button_fr: fieldValue('email_button_fr'),
+        email_button_en: fieldValue('email_button_en'),
+        email_disclaimer_fr: fieldValue('email_disclaimer_fr'),
+        email_disclaimer_en: fieldValue('email_disclaimer_en')
+    };
+    apiPost('/admin/api/event/email-preview', data)
+        .then(function(resp) {
+            var frFrame = document.getElementById('email-preview-fr');
+            var enFrame = document.getElementById('email-preview-en');
+            if (frFrame && resp.fr) frFrame.srcdoc = resp.fr;
+            if (enFrame && resp.en) enFrame.srcdoc = resp.en;
+        })
+        .catch(function(e) { console.error('email preview failed', e); });
+}, 400);
+
+function initEmailPreview() {
+    var panel = document.getElementById('email-preview-panel');
+    if (!panel) return;
+    var eventId = parseInt(panel.dataset.eventId);
+    var trigger = function() { refreshEmailPreview(eventId); };
+
+    refreshEmailPreview(eventId); // initial render
+
+    var details = document.querySelector('#event-details [data-event-id]');
+    if (details) {
+        details.addEventListener('input', trigger);
+        details.addEventListener('change', trigger);
+        details.addEventListener('trix-change', trigger);
+    }
+    var customize = document.getElementById('email-customize-body');
+    if (customize) {
+        customize.addEventListener('input', trigger);
+        customize.addEventListener('change', trigger);
+    }
+}
+
 // ---- Auto-save groups ----
 
 // Per-group debounced savers
@@ -392,5 +452,6 @@ function updatePlaceholders() {
 // ---- Init ----
 
 initEventAutoSave();
+initEmailPreview();
 initTreeAutoSave();
 updatePlaceholders();
