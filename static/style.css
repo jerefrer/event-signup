@@ -272,6 +272,69 @@ select.form-input { appearance: auto; }
 /* Taller event description textareas */
 textarea.event-desc-textarea { min-height: 12rem; }
 
+/* Email customization panel — collapsible <details>, sized to match other panels */
+.email-customize-panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+.email-customize-summary {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid transparent;
+    background: var(--color-bg);
+    font-size: var(--text-lg);
+    font-weight: 600;
+    color: var(--color-text);
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.email-customize-summary::-webkit-details-marker { display: none; }
+.email-customize-summary::before {
+    content: "\25B8"; /* right-pointing triangle */
+    color: var(--color-text-secondary);
+    transition: transform 0.15s ease;
+    display: inline-block;
+}
+.email-customize-panel[open] .email-customize-summary::before {
+    transform: rotate(90deg);
+}
+.email-customize-panel[open] .email-customize-summary {
+    border-bottom-color: var(--color-border);
+}
+.email-customize-grid {
+    display: grid;
+    grid-template-columns: 12rem 1fr 1fr;
+    gap: 0.6rem 0.75rem;
+    align-items: start;
+}
+@media (max-width: 800px) {
+    .email-customize-grid {
+        grid-template-columns: 1fr;
+    }
+    .email-customize-label-col,
+    .email-customize-lang-header { display: none; }
+    .email-customize-label::after { content: ":"; }
+}
+.email-customize-lang-header {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    padding-bottom: 0.25rem;
+}
+.email-customize-label {
+    font-size: var(--text-sm);
+    color: var(--color-text);
+    font-weight: 500;
+    padding-top: 0.55rem;
+}
+
 /* Trix rich-text editor for event descriptions — styled to match form-input */
 trix-editor.event-desc-editor {
     width: 100%;

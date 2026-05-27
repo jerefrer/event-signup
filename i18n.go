@@ -250,6 +250,23 @@ var translations = map[string]Translations{
 	"santa_email_how_step3":        {"fr": "Le jour de l'événement, offrez votre cadeau à cette personne.", "en": "On event day, give your gift to that person."},
 	"santa_email_link_button":      {"fr": "✏️ Remplir ma liste", "en": "✏️ Fill in my list"},
 	"santa_email_reveal_subject":   {"fr": "Votre tirage pour", "en": "Your draw for"},
+
+	// Admin: per-event email customization panel
+	"email_customize_title":     {"fr": "Personnaliser l'email d'invitation", "en": "Customize the invitation email"},
+	"email_customize_intro":     {"fr": "Laissez un champ vide pour utiliser le texte par défaut (en gris). Tout texte saisi remplacera la valeur par défaut dans l'email envoyé aux participants.", "en": "Leave a field blank to use the default text (shown in grey). Anything you type replaces the default in the email sent to participants."},
+	"email_customize_show":      {"fr": "Personnaliser l'email", "en": "Customize email"},
+	"email_customize_hide":      {"fr": "Masquer la personnalisation", "en": "Hide customization"},
+	"email_field_hook":          {"fr": "Phrase d'accroche", "en": "Hook line"},
+	"email_field_how_title":     {"fr": "Titre « Comment ça marche »", "en": "\"How it works\" heading"},
+	"email_field_how_step1":     {"fr": "Étape 1", "en": "Step 1"},
+	"email_field_how_step2":     {"fr": "Étape 2", "en": "Step 2"},
+	"email_field_how_step3":     {"fr": "Étape 3", "en": "Step 3"},
+	"email_field_button":        {"fr": "Texte du bouton", "en": "Button text"},
+	"email_field_disclaimer":    {"fr": "Mention finale (italique)", "en": "Footer disclaimer (italic)"},
+	"email_field_lang_fr":       {"fr": "Français", "en": "French"},
+	"email_field_lang_en":       {"fr": "Anglais", "en": "English"},
+	"email_preview_title":       {"fr": "Aperçu de l'email", "en": "Email preview"},
+	"email_preview_intro":       {"fr": "Aperçu mis à jour en direct selon ce que vous tapez. Affiché à gauche en français, à droite en anglais.", "en": "Live preview that updates as you type. French on the left, English on the right."},
 	"santa_email_reveal_intro":   {"fr": "Vous offrez un cadeau à :", "en": "You are giving a gift to:"},
 	"santa_email_reveal_wishes":  {"fr": "Voici ses souhaits :", "en": "Here are their wishes:"},
 
@@ -345,6 +362,13 @@ func TemplateFuncs(lang string) template.FuncMap {
 	return template.FuncMap{
 		"t": func(key string) string {
 			return T(key, lang)
+		},
+		// tLang fetches an i18n value for an explicit language — useful in
+		// the admin form where placeholders need to show the FR default in
+		// a French input and the EN default in an English input, regardless
+		// of which language the admin is currently using to navigate.
+		"tLang": func(key, l string) string {
+			return T(key, l)
 		},
 		"loc": func(fr, en string) string {
 			return Localized(fr, en, lang)

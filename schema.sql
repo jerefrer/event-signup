@@ -9,6 +9,22 @@ CREATE TABLE IF NOT EXISTS events (
     event_time TEXT NOT NULL DEFAULT '',
     event_type TEXT NOT NULL DEFAULT 'tasks',
     santa_drawn_at TEXT,
+    -- Per-event overrides for the magic-link email shell. Empty means
+    -- "use the i18n default" (see santa_email_* keys in i18n.go).
+    email_hook_fr TEXT NOT NULL DEFAULT '',
+    email_hook_en TEXT NOT NULL DEFAULT '',
+    email_how_title_fr TEXT NOT NULL DEFAULT '',
+    email_how_title_en TEXT NOT NULL DEFAULT '',
+    email_how_step1_fr TEXT NOT NULL DEFAULT '',
+    email_how_step1_en TEXT NOT NULL DEFAULT '',
+    email_how_step2_fr TEXT NOT NULL DEFAULT '',
+    email_how_step2_en TEXT NOT NULL DEFAULT '',
+    email_how_step3_fr TEXT NOT NULL DEFAULT '',
+    email_how_step3_en TEXT NOT NULL DEFAULT '',
+    email_button_fr TEXT NOT NULL DEFAULT '',
+    email_button_en TEXT NOT NULL DEFAULT '',
+    email_disclaimer_fr TEXT NOT NULL DEFAULT '',
+    email_disclaimer_en TEXT NOT NULL DEFAULT '',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -260,14 +260,38 @@ func TestRenderSantaEmails(t *testing.T) {
 	for _, want := range []string{
 		"http://x/santa/edit?token=abc",
 		"Alice",
-		"invité",                                                       // from santa_email_link_hook (FR)
-		"Comment ça marche",                                            // from santa_email_how_title (FR)
-		"3 souhaits",                                                   // from santa_email_how_step1 (FR)
+		"invité",                                                         // from santa_email_link_hook (FR, default)
+		"Comment ça marche",                                              // from santa_email_how_title (FR, default)
+		"3 souhaits",                                                     // from santa_email_how_step1 (FR, default)
 		"<p>Rendez-vous à 11h <strong>sous le grand chêne</strong>.</p>", // description rendered as-is
 	} {
 		if !strings.Contains(html, want) {
-			t.Errorf("link email is missing %q", want)
+			t.Errorf("link email is missing %q (default rendering)", want)
 		}
+	}
+
+	// Per-event overrides win over the i18n defaults.
+	eCustom := e
+	eCustom.EmailHookFR = "Salut ! Nous organisons un super tirage cette année."
+	eCustom.EmailHowTitleFR = "Le déroulé"
+	eCustom.EmailHowStep1FR = "Étape personnalisée 1."
+	eCustom.EmailButtonFR = "👉 Ma liste perso"
+	eCustom.EmailDisclaimerFR = "Petit rappel personnalisé."
+	_, htmlCustom := renderSantaLinkEmail("fr", giver, eCustom, "http://x/santa/edit?token=abc")
+	for _, want := range []string{
+		"super tirage cette année",
+		"Le déroulé",
+		"Étape personnalisée 1.",
+		"Ma liste perso",
+		"Petit rappel personnalisé.",
+	} {
+		if !strings.Contains(htmlCustom, want) {
+			t.Errorf("link email did not pick up the per-event override %q", want)
+		}
+	}
+	// The defaults that were overridden must not leak through anymore.
+	if strings.Contains(htmlCustom, "invité(e) à participer à notre Secret Santa") {
+		t.Error("link email used the default hook even though an override was set")
 	}
 
 	subj2, html2 := renderSantaRevealEmail("fr", giver, receiver, e, "http://x")

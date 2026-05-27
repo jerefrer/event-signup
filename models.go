@@ -31,10 +31,26 @@ type Event struct {
 	EventTime     string
 	EventType     string // "tasks", "attendance" or "secret_santa"
 	SantaDrawnAt  sql.NullString
-	CreatedAt     time.Time
-	RegCount      int
-	AttendanceYes int
-	AttendanceNo  int
+	// Per-event overrides for the magic-link email. Empty means "use the
+	// i18n default" for the participant's language.
+	EmailHookFR       string
+	EmailHookEN       string
+	EmailHowTitleFR   string
+	EmailHowTitleEN   string
+	EmailHowStep1FR   string
+	EmailHowStep1EN   string
+	EmailHowStep2FR   string
+	EmailHowStep2EN   string
+	EmailHowStep3FR   string
+	EmailHowStep3EN   string
+	EmailButtonFR     string
+	EmailButtonEN     string
+	EmailDisclaimerFR string
+	EmailDisclaimerEN string
+	CreatedAt         time.Time
+	RegCount          int
+	AttendanceYes     int
+	AttendanceNo      int
 }
 
 type TaskGroup struct {
@@ -116,6 +132,20 @@ func InitDB(dbPath string) (*sql.DB, error) {
 	// Migrate registrations: name → first_name + last_name
 	migrateColumn(db, "events", "event_type", "ALTER TABLE events ADD COLUMN event_type TEXT NOT NULL DEFAULT 'tasks'")
 	migrateColumn(db, "events", "santa_drawn_at", "ALTER TABLE events ADD COLUMN santa_drawn_at TEXT")
+
+	// Per-event overrides for the magic-link email shell (empty = i18n default).
+	for _, col := range []string{
+		"email_hook_fr", "email_hook_en",
+		"email_how_title_fr", "email_how_title_en",
+		"email_how_step1_fr", "email_how_step1_en",
+		"email_how_step2_fr", "email_how_step2_en",
+		"email_how_step3_fr", "email_how_step3_en",
+		"email_button_fr", "email_button_en",
+		"email_disclaimer_fr", "email_disclaimer_en",
+	} {
+		migrateColumn(db, "events", col,
+			fmt.Sprintf("ALTER TABLE events ADD COLUMN %s TEXT NOT NULL DEFAULT ''", col))
+	}
 
 	migrateColumn(db, "registrations", "first_name", "ALTER TABLE registrations ADD COLUMN first_name TEXT NOT NULL DEFAULT ''")
 	migrateColumn(db, "registrations", "last_name", "ALTER TABLE registrations ADD COLUMN last_name TEXT NOT NULL DEFAULT ''")
@@ -319,11 +349,22 @@ func EnsureUniqueSlug(db *sql.DB, slug string, excludeID int64) (string, error) 
 
 // ---- Event CRUD ----
 
-const eventCols = "id, slug, title_fr, title_en, description_fr, description_en, event_date, event_time, event_type, santa_drawn_at, created_at"
+const eventCols = "id, slug, title_fr, title_en, description_fr, description_en, event_date, event_time, event_type, santa_drawn_at, email_hook_fr, email_hook_en, email_how_title_fr, email_how_title_en, email_how_step1_fr, email_how_step1_en, email_how_step2_fr, email_how_step2_en, email_how_step3_fr, email_how_step3_en, email_button_fr, email_button_en, email_disclaimer_fr, email_disclaimer_en, created_at"
 
 func scanEvent(row interface{ Scan(...any) error }) (*Event, error) {
 	e := &Event{}
-	err := row.Scan(&e.ID, &e.Slug, &e.TitleFR, &e.TitleEN, &e.DescriptionFR, &e.DescriptionEN, &e.EventDate, &e.EventTime, &e.EventType, &e.SantaDrawnAt, &e.CreatedAt)
+	err := row.Scan(
+		&e.ID, &e.Slug, &e.TitleFR, &e.TitleEN, &e.DescriptionFR, &e.DescriptionEN,
+		&e.EventDate, &e.EventTime, &e.EventType, &e.SantaDrawnAt,
+		&e.EmailHookFR, &e.EmailHookEN,
+		&e.EmailHowTitleFR, &e.EmailHowTitleEN,
+		&e.EmailHowStep1FR, &e.EmailHowStep1EN,
+		&e.EmailHowStep2FR, &e.EmailHowStep2EN,
+		&e.EmailHowStep3FR, &e.EmailHowStep3EN,
+		&e.EmailButtonFR, &e.EmailButtonEN,
+		&e.EmailDisclaimerFR, &e.EmailDisclaimerEN,
+		&e.CreatedAt,
+	)
 	return e, err
 }
 
@@ -337,8 +378,26 @@ func CreateEvent(db *sql.DB, e *Event) error {
 		e.EventType = "tasks"
 	}
 	res, err := db.Exec(
-		"INSERT INTO events (slug, title_fr, title_en, description_fr, description_en, event_date, event_time, event_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-		e.Slug, e.TitleFR, e.TitleEN, e.DescriptionFR, e.DescriptionEN, e.EventDate, e.EventTime, e.EventType,
+		`INSERT INTO events (
+			slug, title_fr, title_en, description_fr, description_en,
+			event_date, event_time, event_type,
+			email_hook_fr, email_hook_en,
+			email_how_title_fr, email_how_title_en,
+			email_how_step1_fr, email_how_step1_en,
+			email_how_step2_fr, email_how_step2_en,
+			email_how_step3_fr, email_how_step3_en,
+			email_button_fr, email_button_en,
+			email_disclaimer_fr, email_disclaimer_en
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		e.Slug, e.TitleFR, e.TitleEN, e.DescriptionFR, e.DescriptionEN,
+		e.EventDate, e.EventTime, e.EventType,
+		e.EmailHookFR, e.EmailHookEN,
+		e.EmailHowTitleFR, e.EmailHowTitleEN,
+		e.EmailHowStep1FR, e.EmailHowStep1EN,
+		e.EmailHowStep2FR, e.EmailHowStep2EN,
+		e.EmailHowStep3FR, e.EmailHowStep3EN,
+		e.EmailButtonFR, e.EmailButtonEN,
+		e.EmailDisclaimerFR, e.EmailDisclaimerEN,
 	)
 	if err != nil {
 		return err
@@ -349,8 +408,27 @@ func CreateEvent(db *sql.DB, e *Event) error {
 
 func UpdateEvent(db *sql.DB, e *Event) error {
 	_, err := db.Exec(
-		"UPDATE events SET title_fr=?, title_en=?, description_fr=?, description_en=?, event_date=?, event_time=?, event_type=? WHERE id=?",
-		e.TitleFR, e.TitleEN, e.DescriptionFR, e.DescriptionEN, e.EventDate, e.EventTime, e.EventType, e.ID,
+		`UPDATE events SET
+			title_fr=?, title_en=?, description_fr=?, description_en=?,
+			event_date=?, event_time=?, event_type=?,
+			email_hook_fr=?, email_hook_en=?,
+			email_how_title_fr=?, email_how_title_en=?,
+			email_how_step1_fr=?, email_how_step1_en=?,
+			email_how_step2_fr=?, email_how_step2_en=?,
+			email_how_step3_fr=?, email_how_step3_en=?,
+			email_button_fr=?, email_button_en=?,
+			email_disclaimer_fr=?, email_disclaimer_en=?
+		WHERE id=?`,
+		e.TitleFR, e.TitleEN, e.DescriptionFR, e.DescriptionEN,
+		e.EventDate, e.EventTime, e.EventType,
+		e.EmailHookFR, e.EmailHookEN,
+		e.EmailHowTitleFR, e.EmailHowTitleEN,
+		e.EmailHowStep1FR, e.EmailHowStep1EN,
+		e.EmailHowStep2FR, e.EmailHowStep2EN,
+		e.EmailHowStep3FR, e.EmailHowStep3EN,
+		e.EmailButtonFR, e.EmailButtonEN,
+		e.EmailDisclaimerFR, e.EmailDisclaimerEN,
+		e.ID,
 	)
 	return err
 }

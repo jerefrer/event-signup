@@ -129,7 +129,25 @@ func baseFromURL(s string) string {
 	return u.Scheme + "://" + u.Host
 }
 
+// emailOverrideOrDefault picks the admin-provided override for the given
+// language when present, otherwise falls back to the i18n default. Used by
+// renderSantaLinkEmail so every customizable string has a sensible default
+// the admin can still override per event.
+func emailOverrideOrDefault(frOverride, enOverride, lang, fallbackKey string) string {
+	if lang == LangEN {
+		if enOverride != "" {
+			return enOverride
+		}
+	} else if frOverride != "" {
+		return frOverride
+	}
+	return T(fallbackKey, lang)
+}
+
 // renderSantaLinkEmail builds the magic-link email in the given language.
+// Every customizable string (hook, how-it-works title and 3 steps, button,
+// disclaimer) honours the per-event override first, falls back to the
+// matching i18n key when the override is empty.
 func renderSantaLinkEmail(lang string, p SantaParticipant, event Event, editURL string) (subject, html string) {
 	eventTitle := Localized(event.TitleFR, event.TitleEN, lang)
 	// Description is admin-authored HTML, sanitized at save time — render as-is.
@@ -141,15 +159,15 @@ func renderSantaLinkEmail(lang string, p SantaParticipant, event Event, editURL 
 			LogoURL: logoURLFromBase(baseFromURL(editURL)),
 		},
 		Greeting:         fmt.Sprintf(T("santa_email_greeting", lang), p.FirstName),
-		Hook:             T("santa_email_link_hook", lang),
-		HowItWorksTitle:  T("santa_email_how_title", lang),
-		Step1:            T("santa_email_how_step1", lang),
-		Step2:            T("santa_email_how_step2", lang),
-		Step3:            T("santa_email_how_step3", lang),
-		ButtonText:       T("santa_email_link_button", lang),
+		Hook:             emailOverrideOrDefault(event.EmailHookFR, event.EmailHookEN, lang, "santa_email_link_hook"),
+		HowItWorksTitle:  emailOverrideOrDefault(event.EmailHowTitleFR, event.EmailHowTitleEN, lang, "santa_email_how_title"),
+		Step1:            emailOverrideOrDefault(event.EmailHowStep1FR, event.EmailHowStep1EN, lang, "santa_email_how_step1"),
+		Step2:            emailOverrideOrDefault(event.EmailHowStep2FR, event.EmailHowStep2EN, lang, "santa_email_how_step2"),
+		Step3:            emailOverrideOrDefault(event.EmailHowStep3FR, event.EmailHowStep3EN, lang, "santa_email_how_step3"),
+		ButtonText:       emailOverrideOrDefault(event.EmailButtonFR, event.EmailButtonEN, lang, "santa_email_link_button"),
 		EditURL:          editURL,
 		EventDescription: desc,
-		Disclaimer:       T("santa_disclaimer", lang),
+		Disclaimer:       emailOverrideOrDefault(event.EmailDisclaimerFR, event.EmailDisclaimerEN, lang, "santa_disclaimer"),
 	}
 	return T("santa_email_link_subject", lang) + " " + eventTitle, renderEmailTemplate("email_santa_link.html", data)
 }

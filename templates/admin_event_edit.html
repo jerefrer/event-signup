@@ -208,6 +208,48 @@
 {{$revealStatus := index $data "RevealStatus"}}
 {{$revealProblems := index $data "RevealProblems"}}
 
+<!-- Per-event overrides for the magic-link email. Collapsed by default
+     since most admins won't touch these; defaults shown as placeholders. -->
+<details class="panel email-customize-panel">
+    <summary class="email-customize-summary">{{t "email_customize_title"}}</summary>
+    <div class="panel-body" id="email-customize-body" data-event-id="{{$event.ID}}">
+        <p class="form-hint" style="margin-bottom:1rem;">{{t "email_customize_intro"}}</p>
+        <div class="email-customize-grid">
+            <div class="email-customize-label-col"></div>
+            <div class="email-customize-lang-header">{{t "email_field_lang_fr"}}</div>
+            <div class="email-customize-lang-header">{{t "email_field_lang_en"}}</div>
+
+            <label class="email-customize-label" for="email_hook_fr">{{t "email_field_hook"}}</label>
+            <input type="text" id="email_hook_fr" class="form-input" value="{{$event.EmailHookFR}}" placeholder="{{tLang "santa_email_link_hook" "fr"}}">
+            <input type="text" id="email_hook_en" class="form-input" value="{{$event.EmailHookEN}}" placeholder="{{tLang "santa_email_link_hook" "en"}}">
+
+            <label class="email-customize-label" for="email_how_title_fr">{{t "email_field_how_title"}}</label>
+            <input type="text" id="email_how_title_fr" class="form-input" value="{{$event.EmailHowTitleFR}}" placeholder="{{tLang "santa_email_how_title" "fr"}}">
+            <input type="text" id="email_how_title_en" class="form-input" value="{{$event.EmailHowTitleEN}}" placeholder="{{tLang "santa_email_how_title" "en"}}">
+
+            <label class="email-customize-label" for="email_how_step1_fr">{{t "email_field_how_step1"}}</label>
+            <input type="text" id="email_how_step1_fr" class="form-input" value="{{$event.EmailHowStep1FR}}" placeholder="{{tLang "santa_email_how_step1" "fr"}}">
+            <input type="text" id="email_how_step1_en" class="form-input" value="{{$event.EmailHowStep1EN}}" placeholder="{{tLang "santa_email_how_step1" "en"}}">
+
+            <label class="email-customize-label" for="email_how_step2_fr">{{t "email_field_how_step2"}}</label>
+            <input type="text" id="email_how_step2_fr" class="form-input" value="{{$event.EmailHowStep2FR}}" placeholder="{{tLang "santa_email_how_step2" "fr"}}">
+            <input type="text" id="email_how_step2_en" class="form-input" value="{{$event.EmailHowStep2EN}}" placeholder="{{tLang "santa_email_how_step2" "en"}}">
+
+            <label class="email-customize-label" for="email_how_step3_fr">{{t "email_field_how_step3"}}</label>
+            <input type="text" id="email_how_step3_fr" class="form-input" value="{{$event.EmailHowStep3FR}}" placeholder="{{tLang "santa_email_how_step3" "fr"}}">
+            <input type="text" id="email_how_step3_en" class="form-input" value="{{$event.EmailHowStep3EN}}" placeholder="{{tLang "santa_email_how_step3" "en"}}">
+
+            <label class="email-customize-label" for="email_button_fr">{{t "email_field_button"}}</label>
+            <input type="text" id="email_button_fr" class="form-input" value="{{$event.EmailButtonFR}}" placeholder="{{tLang "santa_email_link_button" "fr"}}">
+            <input type="text" id="email_button_en" class="form-input" value="{{$event.EmailButtonEN}}" placeholder="{{tLang "santa_email_link_button" "en"}}">
+
+            <label class="email-customize-label" for="email_disclaimer_fr">{{t "email_field_disclaimer"}}</label>
+            <textarea id="email_disclaimer_fr" rows="3" class="form-input" placeholder="{{tLang "santa_disclaimer" "fr"}}">{{$event.EmailDisclaimerFR}}</textarea>
+            <textarea id="email_disclaimer_en" rows="3" class="form-input" placeholder="{{tLang "santa_disclaimer" "en"}}">{{$event.EmailDisclaimerEN}}</textarea>
+        </div>
+    </div>
+</details>
+
 <!-- 1. Participants -->
 <section class="panel">
     <h2 class="panel-title">{{t "santa_admin_section_participants"}}</h2>

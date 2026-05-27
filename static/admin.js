@@ -66,15 +66,37 @@ function copySantaLink(btn) {
 
 // ---- Auto-save event details ----
 
+// Read an input/textarea/hidden field's value by id, defaulting to '' when
+// the field is absent (e.g. for event types that don't show all panels).
+function fieldValue(id) {
+    var el = document.getElementById(id);
+    return el ? el.value : '';
+}
+
 var saveEvent = debounce(function(eventId) {
     var data = {
         event_id: eventId,
-        title_fr: document.getElementById('title_fr').value,
-        title_en: document.getElementById('title_en').value,
-        description_fr: document.getElementById('description_fr').value,
-        description_en: document.getElementById('description_en').value,
-        event_date: document.getElementById('event_date').value,
-        event_time: document.getElementById('event_time').value
+        title_fr: fieldValue('title_fr'),
+        title_en: fieldValue('title_en'),
+        description_fr: fieldValue('description_fr'),
+        description_en: fieldValue('description_en'),
+        event_date: fieldValue('event_date'),
+        event_time: fieldValue('event_time'),
+        // Per-event email overrides (only present on secret_santa events).
+        email_hook_fr: fieldValue('email_hook_fr'),
+        email_hook_en: fieldValue('email_hook_en'),
+        email_how_title_fr: fieldValue('email_how_title_fr'),
+        email_how_title_en: fieldValue('email_how_title_en'),
+        email_how_step1_fr: fieldValue('email_how_step1_fr'),
+        email_how_step1_en: fieldValue('email_how_step1_en'),
+        email_how_step2_fr: fieldValue('email_how_step2_fr'),
+        email_how_step2_en: fieldValue('email_how_step2_en'),
+        email_how_step3_fr: fieldValue('email_how_step3_fr'),
+        email_how_step3_en: fieldValue('email_how_step3_en'),
+        email_button_fr: fieldValue('email_button_fr'),
+        email_button_en: fieldValue('email_button_en'),
+        email_disclaimer_fr: fieldValue('email_disclaimer_fr'),
+        email_disclaimer_en: fieldValue('email_disclaimer_en')
     };
     showSave('', 'Saving...');
     apiPost('/admin/api/event/save', data)
@@ -86,12 +108,21 @@ function initEventAutoSave() {
     var form = document.querySelector('#event-details [data-event-id]');
     if (!form) return;
     var eventId = parseInt(form.dataset.eventId);
-    form.addEventListener('input', function() { saveEvent(eventId); });
-    form.addEventListener('change', function() { saveEvent(eventId); });
+    var trigger = function() { saveEvent(eventId); };
+    form.addEventListener('input', trigger);
+    form.addEventListener('change', trigger);
     // Trix updates its backing hidden input programmatically, which does not
     // fire 'input' on a hidden field. Wire the editor's own 'trix-change'
     // event to the same debounced saver.
-    form.addEventListener('trix-change', function() { saveEvent(eventId); });
+    form.addEventListener('trix-change', trigger);
+
+    // The email-customization panel lives in a separate <details> section
+    // (outside #event-details), so it needs its own listener pair.
+    var customize = document.getElementById('email-customize-body');
+    if (customize) {
+        customize.addEventListener('input', trigger);
+        customize.addEventListener('change', trigger);
+    }
 }
 
 // Reject file/image attachments anywhere a Trix editor is mounted. CSS also
