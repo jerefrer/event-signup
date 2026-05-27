@@ -84,7 +84,11 @@ type emailCommon struct {
 
 type santaLinkEmailData struct {
 	emailCommon
-	Greeting, ButtonText, EditURL, Disclaimer string
+	Greeting, Hook                            string
+	HowItWorksTitle, Step1, Step2, Step3      string
+	ButtonText, EditURL                       string
+	EventDescription                          template.HTML
+	Disclaimer                                string
 }
 
 type santaRevealEmailData struct {
@@ -128,16 +132,24 @@ func baseFromURL(s string) string {
 // renderSantaLinkEmail builds the magic-link email in the given language.
 func renderSantaLinkEmail(lang string, p SantaParticipant, event Event, editURL string) (subject, html string) {
 	eventTitle := Localized(event.TitleFR, event.TitleEN, lang)
+	descRaw := Localized(event.DescriptionFR, event.DescriptionEN, lang)
+	desc := template.HTML(strings.ReplaceAll(template.HTMLEscapeString(descRaw), "\n", "<br>"))
 	data := santaLinkEmailData{
 		emailCommon: emailCommon{
 			Lang:    lang,
 			Title:   eventTitle,
 			LogoURL: logoURLFromBase(baseFromURL(editURL)),
 		},
-		Greeting:   fmt.Sprintf(T("santa_email_greeting", lang), p.FirstName),
-		ButtonText: T("santa_email_link_button", lang),
-		EditURL:    editURL,
-		Disclaimer: T("santa_disclaimer", lang),
+		Greeting:         fmt.Sprintf(T("santa_email_greeting", lang), p.FirstName),
+		Hook:             T("santa_email_link_hook", lang),
+		HowItWorksTitle:  T("santa_email_how_title", lang),
+		Step1:            T("santa_email_how_step1", lang),
+		Step2:            T("santa_email_how_step2", lang),
+		Step3:            T("santa_email_how_step3", lang),
+		ButtonText:       T("santa_email_link_button", lang),
+		EditURL:          editURL,
+		EventDescription: desc,
+		Disclaimer:       T("santa_disclaimer", lang),
 	}
 	return T("santa_email_link_subject", lang) + " " + eventTitle, renderEmailTemplate("email_santa_link.html", data)
 }

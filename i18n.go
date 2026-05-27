@@ -241,10 +241,15 @@ var translations = map[string]Translations{
 	"email_status_rejected":            {"fr": "Rejeté", "en": "Rejected"},
 
 	// Secret Santa — emails
-	"santa_email_greeting":       {"fr": "Bonjour %s,", "en": "Hello %s,"},
-	"santa_email_link_subject":   {"fr": "Votre lien pour", "en": "Your link for"},
-	"santa_email_link_button":    {"fr": "✏️ Remplir ma liste", "en": "✏️ Fill in my list"},
-	"santa_email_reveal_subject": {"fr": "Votre tirage pour", "en": "Your draw for"},
+	"santa_email_greeting":         {"fr": "Bonjour %s,", "en": "Hello %s,"},
+	"santa_email_link_subject":     {"fr": "Votre lien pour", "en": "Your link for"},
+	"santa_email_link_hook":        {"fr": "Vous êtes invité(e) à participer à notre Secret Santa.", "en": "You're invited to take part in our Secret Santa."},
+	"santa_email_how_title":        {"fr": "Comment ça marche", "en": "How it works"},
+	"santa_email_how_step1":        {"fr": "Remplissez votre liste avec 3 souhaits en cliquant sur le bouton ci-dessous.", "en": "Fill in your wish list with 3 ideas by clicking the button below."},
+	"santa_email_how_step2":        {"fr": "Au tirage, vous recevrez par email le nom d'une seule personne à qui offrir un cadeau.", "en": "After the draw, you'll receive by email the name of just one person to give a gift to."},
+	"santa_email_how_step3":        {"fr": "Le jour de l'événement, offrez votre cadeau à cette personne.", "en": "On event day, give your gift to that person."},
+	"santa_email_link_button":      {"fr": "✏️ Remplir ma liste", "en": "✏️ Fill in my list"},
+	"santa_email_reveal_subject":   {"fr": "Votre tirage pour", "en": "Your draw for"},
 	"santa_email_reveal_intro":   {"fr": "Vous offrez un cadeau à :", "en": "You are giving a gift to:"},
 	"santa_email_reveal_wishes":  {"fr": "Voici ses souhaits :", "en": "Here are their wishes:"},
 

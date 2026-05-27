@@ -242,7 +242,13 @@ func TestSaveSantaDraw(t *testing.T) {
 }
 
 func TestRenderSantaEmails(t *testing.T) {
-	e := Event{TitleFR: "Noël", TitleEN: "Christmas", Slug: "noel"}
+	e := Event{
+		TitleFR:       "Noël",
+		TitleEN:       "Christmas",
+		DescriptionFR: "Rendez-vous à 11h\nsous le grand chêne.",
+		DescriptionEN: "Meet at 11am\nunder the big oak.",
+		Slug:          "noel",
+	}
 	giver := SantaParticipant{FirstName: "Alice", LastName: "Dupont", Email: "alice@t.com"}
 	receiver := SantaParticipant{FirstName: "Bob", LastName: "Martin",
 		WishBuy: "un stylo", WishMake: "un poeme", WishFree: "une surprise"}
@@ -251,11 +257,17 @@ func TestRenderSantaEmails(t *testing.T) {
 	if subj == "" {
 		t.Error("link email subject is empty")
 	}
-	if !strings.Contains(html, "http://x/santa/edit?token=abc") {
-		t.Error("link email is missing the edit URL")
-	}
-	if !strings.Contains(html, "Alice") {
-		t.Error("link email is missing the greeting name")
+	for _, want := range []string{
+		"http://x/santa/edit?token=abc",
+		"Alice",
+		"invité",          // from santa_email_link_hook (FR)
+		"Comment ça marche",
+		"3 souhaits",      // from santa_email_how_step1 (FR)
+		"Rendez-vous à 11h<br>sous le grand chêne.", // event description with nl2br applied
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("link email is missing %q", want)
+		}
 	}
 
 	subj2, html2 := renderSantaRevealEmail("fr", giver, receiver, e, "http://x")

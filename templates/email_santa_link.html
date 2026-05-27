@@ -1,62 +1,22 @@
 {{define "email_content"}}
 {{$p := "margin:0 0 1em;color:#000000;line-height:24px;"}}
-{{$ul := "margin:0 0 1em;padding-left:22px;color:#000000;line-height:24px;"}}
-{{$li := "margin:0 0 0.4em;"}}
-{{$heading := "text-align:center;margin:0 0 0.25em;color:#1db100;font-weight:bold;font-size:18px;line-height:26px;"}}
-{{$emph := "text-align:center;font-style:italic;color:#000000;line-height:24px;margin:0 0 1em;"}}
-<p style="margin:0 0 1em;color:#000000;line-height:24px;">{{.Greeting}}</p>
-{{if eq .Lang "fr"}}
-<p style="{{$p}}">Voici un e-mail de rappel concernant la célébration du Saga Dawa, ce dimanche 31 mai.</p>
-<p style="{{$p}}"><em>Merci de ne pas partager ni transférer l'invitation que vous avez reçue à d'autres personnes, en particulier sur les réseaux sociaux, car il s'agit d'un événement sur mesure avec un nombre de places limité.</em></p>
-<p style="{{$p}}">Veuillez <strong>vous garer dans la partie supérieure du grand parking situé en contrebas de La Sonnerie</strong>, qui a été tondu.</p>
-<p style="{{$p}}">Nous nous retrouverons à <u>11 h</u> <strong>sous le grand chêne</strong>, dans le champ situé à côté du site des enseignements d'été.</p>
-<p style="{{$p}}">Le sol n'est pas plat et descend en pente vers l'arbre, <strong>veuillez</strong> donc <strong>porter des chaussures adaptées</strong>.</p>
-<p style="{{$p}}">Nous recouvrirons le sol de tapis et de couvertures pour le rendre aussi confortable que possible. N'hésitez pas à apporter vos propres <strong>coussins</strong> si vous en avez, ainsi que <strong>des chaises pliantes</strong> pour ceux qui le souhaitent (il y aura quelques chaises sur place).</p>
-<p style="margin:0 0 0.4em;color:#000000;line-height:24px;"><u>N'oubliez pas :</u></p>
-<ul style="{{$ul}}">
-    <li style="{{$li}}">de mettre <strong>du répulsif à insectes</strong>, au cas où ;</li>
-    <li style="{{$li}}">d'apporter votre propre <strong>bol, fourchette/cuillère et tasse</strong> pour le thé. Nous fournirons des assiettes et des gobelets en papier ;</li>
-    <li style="{{$li}}">d'apporter <strong>quelque chose à manger</strong> à partager et/ou des boissons.</li>
-</ul>
-<p style="{{$p}}">À <u>11h15</u>, nous lirons en français <strong>les pages 86 à 102</strong> de <strong>« Le Soleil de la confiance »</strong> (voir pièce jointe ou apportez votre propre livre, si vous l'avez), qui relatent les six années d'ascèse de Siddhartha, sa décision de suivre la voie du milieu et son illumination qui s'ensuivit. Nous ferons une pause pour déguster le riz au lait lorsque nous arriverons à la partie correspondante de l'histoire.</p>
-<p style="{{$p}}">Vers midi, la chorale de Chanteloube chantera quelques chants, suivis, pour ceux qui souhaitent y participer, de notre échange de cadeaux (voir ci-dessous) et d'un déjeuner partagé.</p>
-<p style="{{$emph}}">Comme Saga Dawa commémore la naissance, l'illumination et le parinirvana du Bouddha, c'est le moment idéal pour pratiquer la générosité, en particulier envers ceux avec qui nous n'avons pas l'habitude d'interagir.</p>
-<p style="{{$heading}}">Nous organisons un échange de cadeaux secret et aléatoire.</p>
-<p style="text-align:center;margin:0 0 1em;color:#000000;line-height:24px;">Si vous souhaitez y participer…</p>
-<p style="{{$p}}"><strong>1. Créez votre liste de souhaits comprenant trois articles.</strong> Idéalement, celle-ci devrait inclure : au moins <u>un article pouvant être acheté</u> (moins de 10 € s'il vous plaît), par exemple une paire de chaussettes, un stylo, un cahier, du chocolat… et au moins <u>un objet qui pourrait être fabriqué ou trouvé,</u> par exemple un plat, un dessin, un poème, une plante du jardin, un service…</p>
-<p style="{{$p}}"><strong>2. Envoyez-nous votre liste de souhaits et patientez.</strong></p>
-{{else}}
-<p style="{{$p}}">This is a reminder for the Saga Dawa celebration, this Sunday 31st May.</p>
-<p style="{{$p}}"><em>Please don't share or forward the invitation you received to others, especially on social media, as this is a tailored event with limited capacity.</em></p>
-<p style="{{$p}}">Please <strong>park in the upper section of the large parking below La Sonnerie</strong> — it has been mown.</p>
-<p style="{{$p}}">We will meet at <u>11am</u> <strong>under the big oak tree</strong>, in the field next to the site of the summer teachings.</p>
-<p style="{{$p}}">The ground is not level and slopes downwards towards the tree, so <strong>please bring sensible shoes</strong>.</p>
-<p style="{{$p}}">We will cover the ground with mats and rugs to make it as comfortable as possible. Please do bring along your own <strong>cushions</strong> if you have them, and <strong>folding chairs</strong> for those who prefer (there will be a few chairs on site).</p>
-<p style="margin:0 0 0.4em;color:#000000;line-height:24px;"><u>Don't forget:</u></p>
-<ul style="{{$ul}}">
-    <li style="{{$li}}">to put on <strong>insect repellent</strong>, just in case;</li>
-    <li style="{{$li}}">to bring your own <strong>bowl, fork/spoon and mug</strong> for tea. We will provide paper plates and cups;</li>
-    <li style="{{$li}}">to bring <strong>something to eat</strong> which can be shared and/or drinks.</li>
-</ul>
-<p style="{{$p}}">At <u>11:15</u> we will read from <strong>« Le Soleil de la confiance », pages 86 to 102</strong>, in French (see the attachment, or bring along your own book if you have it): the account of Siddhartha's six-year period of austerities, his decision to follow the middle way and his ensuing enlightenment. We will pause to take the offering of rice pudding when we reach the corresponding part in the story.</p>
-<p style="{{$p}}">Around noon there will be songs from the Chanteloube choir, followed — for those who wish to participate — by our present exchange (see below) and a shared lunch.</p>
-<p style="{{$emph}}">As Saga Dawa commemorates the birth, enlightenment and parinirvana of the Buddha, it is an ideal time to practice generosity, especially towards those we may not normally interact with.</p>
-<p style="{{$heading}}">We are organising a secret, random present exchange.</p>
-<p style="text-align:center;margin:0 0 1em;color:#000000;line-height:24px;">If you would like to participate…</p>
-<p style="{{$p}}"><strong>1. Create your wishlist of three items.</strong> Ideally it includes: at least <u>one item which could be bought</u> (under €10 please) — e.g. a pair of socks, a pen, a notebook, chocolate… — and at least <u>one item which could be made or found</u> — e.g. a dish, a drawing, a poem, a plant from the garden, a service…</p>
-<p style="{{$p}}"><strong>2. Send us your wishlist and wait.</strong></p>
-{{end}}
+{{$ol := "margin:0 0 1em;padding-left:22px;color:#000000;line-height:24px;"}}
+{{$li := "margin:0 0 0.5em;"}}
+{{$heading := "margin:0 0 0.5em;color:#000000;font-weight:bold;font-size:16px;line-height:24px;"}}
+<p style="{{$p}}">{{.Greeting}}</p>
+<p style="{{$p}}">{{.Hook}}</p>
+<p style="{{$heading}}">{{.HowItWorksTitle}}</p>
+<ol style="{{$ol}}">
+    <li style="{{$li}}">{{.Step1}}</li>
+    <li style="{{$li}}">{{.Step2}}</li>
+    <li style="{{$li}}">{{.Step3}}</li>
+</ol>
 <div style="text-align:center;margin:24px 0;">
     <a href="{{.EditURL}}" style="display:inline-block;background-color:#c0392b;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:4px;font-weight:500;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">{{.ButtonText}}</a>
 </div>
-{{if eq .Lang "fr"}}
-<p style="{{$p}}"><strong>3. Recevez le nom et la liste de souhaits de la personne à qui vous allez offrir un cadeau (ce choix sera généré de manière aléatoire). Gardez-le secret.</strong></p>
-<p style="{{$p}}"><strong>4. Achetez, fabriquez ou préparez <u>UN</u> des articles de la liste</strong> (s'il s'agit d'un service, vous pouvez apporter une note détaillant le service avec vos coordonnées).</p>
-<p style="{{$p}}"><strong>5.</strong> Le 31, après le concert, <strong>trouvez votre destinataire et offrez-lui votre cadeau.</strong></p>
-{{else}}
-<p style="{{$p}}"><strong>3. Receive the name and the wishlist of the person you will be giving to (drawn randomly). Keep it secret.</strong></p>
-<p style="{{$p}}"><strong>4. Buy, make or prepare <u>ONE</u> of the items on the list</strong> (if it's a service, you could bring a note detailing the service with your contact details).</p>
-<p style="{{$p}}"><strong>5.</strong> On the 31st, after the concert, <strong>find your recipient and offer them your gift.</strong></p>
+{{if .EventDescription}}
+<hr style="border:none;border-top:1px solid #e5e5e5;margin:24px 0;">
+<div style="{{$p}}">{{.EventDescription}}</div>
 {{end}}
 <p style="font-style:italic;color:#5f5f5f;font-size:14px;padding:12px 16px;background-color:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;margin:24px 0 0;line-height:21px;">{{.Disclaimer}}</p>
 {{end}}
