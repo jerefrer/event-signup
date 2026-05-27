@@ -22,13 +22,22 @@
     <h2>{{t "santa_link_sent"}}</h2>
 </div>
 {{else}}
+<section class="panel" style="margin-bottom:1.25rem;">
+    <h2 class="panel-title">{{t "santa_how_title"}}</h2>
+    <div class="panel-body">
+        <ol style="margin:0; padding-left:1.5rem; line-height:1.6;">
+            <li style="margin-bottom:0.5rem;">{{t "santa_how_step1"}}</li>
+            <li style="margin-bottom:0.5rem;">{{t "santa_how_step2"}}</li>
+            <li>{{t "santa_how_step3"}}</li>
+        </ol>
+    </div>
+</section>
 <form id="santa-register-form" method="POST" action="/santa/register?lang={{lang}}" class="signup-unified">
     <input type="hidden" name="event_id" value="{{$event.ID}}">
     <section class="panel">
         <h2 class="panel-title">{{t "santa_register_title"}}</h2>
         <div class="panel-body">
             <p class="form-hint" style="margin-bottom:1rem;">{{t "santa_register_intro"}}</p>
-            <p class="santa-disclaimer">{{t "santa_disclaimer"}}</p>
             <div class="form-row">
                 <div class="form-group">
                     <label for="first_name">{{t "registration_first_name"}} *</label>
@@ -46,6 +55,7 @@
         </div>
     </section>
     <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-envelope"></i> {{t "santa_register_btn"}}</button>
+    <p class="santa-disclaimer" style="margin-top:1rem;">{{t "santa_disclaimer"}}</p>
 </form>
 <div id="santa-continue" style="display:none;text-align:center;margin-top:1rem;">
     <a id="santa-continue-link" class="btn btn-secondary" href="#"><i class="fa-solid fa-pencil"></i> {{t "santa_continue_btn"}}</a>

@@ -163,6 +163,10 @@ var translations = map[string]Translations{
 	// Secret Santa — public
 	"santa_register_title": {"fr": "Inscription au Secret Santa", "en": "Secret Santa Registration"},
 	"santa_register_intro": {"fr": "Inscrivez-vous pour recevoir par email votre lien personnel.", "en": "Sign up to receive your personal link by email."},
+	"santa_how_title":      {"fr": "Comment ça marche", "en": "How it works"},
+	"santa_how_step1":      {"fr": "Inscrivez-vous avec votre nom et votre email.", "en": "Sign up with your name and email."},
+	"santa_how_step2":      {"fr": "Recevez par email un lien personnel pour remplir votre liste de souhaits.", "en": "You'll receive a personal link by email to fill in your wish list."},
+	"santa_how_step3":      {"fr": "Le jour du tirage, vous recevrez par email le nom d'une seule personne à qui offrir un cadeau.", "en": "On draw day, you'll receive by email the name of just one person to give a gift to."},
 	"santa_disclaimer":     {"fr": "Nous ne pouvons pas garantir que vous recevrez quelque chose en retour. Nous espérons que ceux qui souhaitent participer le feront pleinement, mais souvenez-vous : c'est un exercice de DON, pas de réception.", "en": "We cannot guarantee you will receive anything in return. We hope those who wish to participate will do so fully, but please remember this is an exercise in GIVING, not receiving."},
 	"santa_register_btn":   {"fr": "Recevoir mon lien", "en": "Send me my link"},
 	"santa_link_sent":      {"fr": "Un email contenant votre lien personnel vous a été envoyé. Cliquez dessus pour remplir vos souhaits.", "en": "An email with your personal link has been sent. Click it to fill in your wishes."},
@@ -173,6 +177,7 @@ var translations = map[string]Translations{
 
 	// Secret Santa — wishes form
 	"santa_wishes_title":       {"fr": "Ma liste de souhaits", "en": "My wish list"},
+	"santa_wishes_audience":    {"fr": "Ce sont les souhaits que verra la personne qui vous offrira un cadeau. Vous, vous n'offrirez qu'un cadeau, à la personne qui vous sera attribuée au moment du tirage.", "en": "These are the wishes the person giving you a gift will see. You will only give one gift yourself — to the person assigned to you at the draw."},
 	"santa_wishes_french_note": {"fr": "La plupart des participants sont francophones — si tu peux, écris ta liste en français pour que tout le monde puisse la lire.", "en": "Most participants here are French speakers. If you can, please write your wish list in French so everyone can read it."},
 	"santa_wish_buy":           {"fr": "Pour ceux qui n'ont pas le temps, quelque chose qui peut être acheté (moins de 10 €)", "en": "For those short on time, something that can be bought (under €10)"},
 	"santa_wish_buy_hint":      {"fr": "Un stylo, des chaussettes, du chocolat…", "en": "A pen, socks, chocolate…"},
@@ -239,7 +244,7 @@ var translations = map[string]Translations{
 	"santa_email_greeting":       {"fr": "Bonjour %s,", "en": "Hello %s,"},
 	"santa_email_link_subject":   {"fr": "Votre lien pour", "en": "Your link for"},
 	"santa_email_link_button":    {"fr": "✏️ Remplir ma liste", "en": "✏️ Fill in my list"},
-	"santa_email_reveal_subject": {"fr": "Votre tirage Secret Santa pour", "en": "Your Secret Santa draw for"},
+	"santa_email_reveal_subject": {"fr": "Votre tirage pour", "en": "Your draw for"},
 	"santa_email_reveal_intro":   {"fr": "Vous offrez un cadeau à :", "en": "You are giving a gift to:"},
 	"santa_email_reveal_wishes":  {"fr": "Voici ses souhaits :", "en": "Here are their wishes:"},
 
