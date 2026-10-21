@@ -173,3 +173,42 @@ func TestBodyLimitIsHigherForAdminRoutes(t *testing.T) {
 		t.Errorf("a 6 MB admin upload: status = %d, want 413", w.Code)
 	}
 }
+
+// ---- Security headers ----
+
+func TestSecurityHeadersOnEveryResponse(t *testing.T) {
+	app := testApp(t)
+	h := secureMux(app)
+
+	for _, path := range []string{"/admin/login", "/api/slots", "/nope-404"} {
+		w := getRequest(h, path)
+		want := map[string]string{
+			"X-Frame-Options":         "DENY",
+			"X-Content-Type-Options":  "nosniff",
+			"Referrer-Policy":         "strict-origin-when-cross-origin",
+			"Content-Security-Policy": "frame-ancestors 'none'",
+		}
+		for k, v := range want {
+			if got := w.Header().Get(k); got != v {
+				t.Errorf("%s: %s = %q, want %q", path, k, got, v)
+			}
+		}
+	}
+}
+
+func TestAdminEmailPreviewIframeStillUsesSrcdoc(t *testing.T) {
+	// The preview iframes are srcdoc documents (no network response), so the
+	// frame-ancestors / X-Frame-Options headers do not apply to them. Guard
+	// the markup so nobody swaps srcdoc for a URL that would now be blocked.
+	b, err := templatesFS.ReadFile("templates/admin_event_edit.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), `<iframe id="email-preview-fr" class="email-preview-iframe" src=`) {
+		t.Error("email preview iframe must keep using srcdoc, not src")
+	}
+	js, _ := staticFS.ReadFile("static/admin.js")
+	if !strings.Contains(string(js), "frFrame.srcdoc") {
+		t.Error("admin.js must fill the preview iframes through srcdoc")
+	}
+}

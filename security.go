@@ -76,7 +76,23 @@ func limitBody(next http.Handler) http.Handler {
 	})
 }
 
+// securityHeaders sets the baseline hardening headers on every response.
+// The CSP is deliberately limited to frame-ancestors: the pages use inline
+// scripts, so a script-src policy would break them. The admin email preview is
+// unaffected — its iframes are srcdoc documents, which have no response of
+// their own for these headers to apply to.
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		h.Set("Content-Security-Policy", "frame-ancestors 'none'")
+		next.ServeHTTP(w, r)
+	})
+}
+
 // secure wraps the whole mux in the app's security middleware chain.
 func (app *App) secure(next http.Handler) http.Handler {
-	return limitBody(next)
+	return securityHeaders(limitBody(next))
 }
