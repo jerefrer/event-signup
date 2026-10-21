@@ -298,10 +298,15 @@ func TestRenderSantaEmails(t *testing.T) {
 	if subj2 == "" {
 		t.Error("reveal email subject is empty")
 	}
-	for _, want := range []string{"Bob", "Martin", "un stylo", "un poeme", "une surprise", "http://x/e/noel"} {
+	for _, want := range []string{"Bob", "Martin", "un stylo", "un poeme", "une surprise", "http://x/static/logo-email.png"} {
 		if !strings.Contains(html2, want) {
 			t.Errorf("reveal email is missing %q", want)
 		}
+	}
+	// The event link was removed on purpose (d39ff76): the reveal email must
+	// not point back to the event page any more.
+	if strings.Contains(html2, "http://x/e/noel") {
+		t.Error("reveal email still links to the event page")
 	}
 }
 
