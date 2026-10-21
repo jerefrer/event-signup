@@ -205,7 +205,7 @@ func main() {
 	addr := listenAddress(port, os.Getenv("EVENT_SIGNUP_LISTEN_ADDR"))
 	log.Printf("Starting server on %s", addr)
 	log.Printf("Admin: http://%s/admin", addr)
-	if err := newHTTPServer(addr, mux).ListenAndServe(); err != nil {
+	if err := newHTTPServer(addr, app.secure(mux)).ListenAndServe(); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
 }

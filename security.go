@@ -46,3 +46,37 @@ func newHTTPServer(addr string, h http.Handler) *http.Server {
 		IdleTimeout:       120 * time.Second,
 	}
 }
+
+const (
+	maxBodyBytes      = 1 << 20 // 1 MB: every public request
+	maxAdminBodyBytes = 5 << 20 // 5 MB: /admin routes (CSV import, AI text, event editor)
+)
+
+// isAdminPath reports whether the request path belongs to the admin area.
+func isAdminPath(p string) bool {
+	return p == "/admin" || strings.HasPrefix(p, "/admin/")
+}
+
+// limitBody caps every request body. A declared Content-Length over the cap is
+// refused up front with 413; chunked or lying bodies are cut off by
+// http.MaxBytesReader as the handler reads them. The SES webhook keeps its own
+// tighter 256 KB cap.
+func limitBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		limit := int64(maxBodyBytes)
+		if isAdminPath(r.URL.Path) {
+			limit = maxAdminBodyBytes
+		}
+		if r.ContentLength > limit {
+			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
+		next.ServeHTTP(w, r)
+	})
+}
+
+// secure wraps the whole mux in the app's security middleware chain.
+func (app *App) secure(next http.Handler) http.Handler {
+	return limitBody(next)
+}

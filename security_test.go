@@ -109,3 +109,67 @@ func TestNewHTTPServerSetsTimeouts(t *testing.T) {
 		t.Errorf("unexpected timeouts: %v %v %v %v", srv.ReadHeaderTimeout, srv.ReadTimeout, srv.WriteTimeout, srv.IdleTimeout)
 	}
 }
+
+// ---- Request body limits ----
+
+// secureMux is newMux behind the same middleware chain main.go installs.
+func secureMux(app *App) http.Handler {
+	return app.secure(newMux(app))
+}
+
+func TestOversizedPublicPostIsRejected(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	h := secureMux(app)
+
+	big := url.Values{
+		"event_id":   {fmt.Sprint(e.ID)},
+		"first_name": {"Alice"},
+		"last_name":  {strings.Repeat("x", 2<<20)},
+		"email":      {"alice@test.com"},
+	}
+	w := postForm(h, "/santa/register?lang=fr", big)
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("oversized public POST: status = %d, want 413", w.Code)
+	}
+	if app.Email.(*fakeEmailSender).count() != 0 {
+		t.Error("an oversized request must not trigger any email")
+	}
+}
+
+func TestNormalPublicPostPassesBodyLimit(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	h := secureMux(app)
+
+	w := postForm(h, "/santa/register?lang=fr", url.Values{
+		"event_id":   {fmt.Sprint(e.ID)},
+		"first_name": {"Alice"},
+		"last_name":  {"Dupont"},
+		"email":      {"alice@test.com"},
+	})
+	if w.Code != 200 {
+		t.Errorf("normal public POST: status = %d, want 200", w.Code)
+	}
+}
+
+func TestBodyLimitIsHigherForAdminRoutes(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	h := secureMux(app)
+
+	// 2 MB CSV: over the 1 MB public cap, under the 5 MB admin cap.
+	csv := "email,prenom,nom\na@b.c,A," + strings.Repeat("x", 2<<20) + "\n"
+	w := postMultipart(h, "/admin/santa/import", "p.csv", csv,
+		map[string]string{"event_id": fmt.Sprint(e.ID)}, adminCookie(app))
+	if w.Code == http.StatusRequestEntityTooLarge {
+		t.Error("a 2 MB admin upload must be accepted")
+	}
+
+	huge := strings.Repeat("x", 6<<20)
+	w = postMultipart(h, "/admin/santa/import", "p.csv", huge,
+		map[string]string{"event_id": fmt.Sprint(e.ID)}, adminCookie(app))
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("a 6 MB admin upload: status = %d, want 413", w.Code)
+	}
+}
