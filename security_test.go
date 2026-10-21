@@ -633,3 +633,122 @@ func TestAdminAPIRequiresJSONContentType(t *testing.T) {
 		t.Errorf("application/json: status = %d, want 200", w.Code)
 	}
 }
+
+// ---- Task signup with an already-registered email ----
+
+func dupSignup(h http.Handler, taskID int64, email string, extra ...string) *httptest.ResponseRecorder {
+	v := url.Values{
+		"task_id":    {fmt.Sprint(taskID)},
+		"first_name": {"Mallory"},
+		"last_name":  {"Intruder"},
+		"email":      {email},
+		"phone":      {"0699999999"},
+	}
+	for i := 0; i+1 < len(extra); i += 2 {
+		v.Set(extra[i], extra[i+1])
+	}
+	return postForm(h, "/signup?lang=fr", v)
+}
+
+func TestSignupDuplicateEmailDoesNotLeakRegistration(t *testing.T) {
+	app := testApp(t)
+	app.BaseURL = "https://events.example.org"
+	e := seedEvent(t, app.DB)
+	tk1 := seedTask(t, app.DB, e.ID, "Cuisine", int64Ptr(5))
+	tk2 := seedTask(t, app.DB, e.ID, "Vaisselle", int64Ptr(5))
+	reg, _ := RegisterForTask(app.DB, tk1.ID, "Alice", "Dupont", "alice@test.com", "0601020304")
+
+	w := dupSignup(newMux(app), tk2.ID, "alice@test.com")
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
+	}
+	body := w.Body.String()
+	for _, secret := range []string{reg.Token, "0601020304", "Dupont"} {
+		if strings.Contains(body, secret) {
+			t.Errorf("response leaks %q of the existing registration", secret)
+		}
+	}
+	if !strings.Contains(body, T("already_registered_link_sent", LangFR)) {
+		t.Error("expected the translated 'link sent by email' message")
+	}
+	if CountRegistrations(app.DB, e.ID) != 1 {
+		t.Error("no second registration may be created")
+	}
+}
+
+func TestSignupDuplicateEmailSendsManageLinkOnce(t *testing.T) {
+	app := testApp(t)
+	app.BaseURL = "https://events.example.org"
+	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	app.Clock = func() time.Time { return now }
+	e := seedEvent(t, app.DB)
+	tk1 := seedTask(t, app.DB, e.ID, "Cuisine", int64Ptr(5))
+	tk2 := seedTask(t, app.DB, e.ID, "Vaisselle", int64Ptr(5))
+	reg, _ := RegisterForTask(app.DB, tk1.ID, "Alice", "Dupont", "alice@test.com", "0601")
+	h := newMux(app)
+	fake := app.Email.(*fakeEmailSender)
+
+	dupSignup(h, tk2.ID, "ALICE@test.com")
+	if fake.count() != 1 {
+		t.Fatalf("expected 1 email, got %d", fake.count())
+	}
+	m := fake.sent[0]
+	if m.To != "ALICE@test.com" && m.To != "alice@test.com" {
+		t.Errorf("email sent to %q", m.To)
+	}
+	if !strings.Contains(m.HTML, "https://events.example.org/cancel/"+reg.Token) {
+		t.Error("email must carry the manage/cancel link")
+	}
+	if !strings.Contains(m.HTML, "Cuisine") {
+		t.Error("email must name the registered task")
+	}
+
+	// Same (event, email) within 10 minutes: same page, no second email.
+	now = now.Add(9 * time.Minute)
+	w := dupSignup(h, tk2.ID, "alice@test.com")
+	if fake.count() != 1 {
+		t.Errorf("throttled attempt sent an email (count = %d)", fake.count())
+	}
+	if !strings.Contains(w.Body.String(), T("already_registered_link_sent", LangFR)) {
+		t.Error("throttled attempt must show the same message")
+	}
+
+	// After the window it works again.
+	now = now.Add(2 * time.Minute)
+	dupSignup(h, tk2.ID, "alice@test.com")
+	if fake.count() != 2 {
+		t.Errorf("expected a new email after 10 minutes, count = %d", fake.count())
+	}
+}
+
+func TestSignupBogusCancelTokenStillHitsDuplicateCheck(t *testing.T) {
+	app := testApp(t)
+	e := seedEvent(t, app.DB)
+	tk := seedTask(t, app.DB, e.ID, "Cuisine", int64Ptr(5))
+	reg, _ := RegisterForTask(app.DB, tk.ID, "Alice", "Dupont", "alice@test.com", "0601")
+
+	w := dupSignup(newMux(app), tk.ID, "alice@test.com", "cancel_token", "bogus")
+	if strings.Contains(w.Body.String(), reg.Token) {
+		t.Error("a bogus cancel_token must not unlock the existing registration")
+	}
+	if CountRegistrations(app.DB, e.ID) != 1 {
+		t.Error("a bogus cancel_token must not create a duplicate registration")
+	}
+}
+
+func TestMailThrottle(t *testing.T) {
+	var th mailThrottle
+	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	if !th.allow("k", now) {
+		t.Fatal("first send must be allowed")
+	}
+	if th.allow("k", now.Add(9*time.Minute)) {
+		t.Error("second send within 10 minutes must be refused")
+	}
+	if !th.allow("other", now.Add(time.Minute)) {
+		t.Error("another key is independent")
+	}
+	if !th.allow("k", now.Add(10*time.Minute+time.Second)) {
+		t.Error("allowed again after the window")
+	}
+}

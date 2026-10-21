@@ -212,3 +212,39 @@ func (l *loginLimiter) sweep(now time.Time) {
 		}
 	}
 }
+
+// mailThrottleWindow is how long a (kind, event, email) key is silenced after
+// a self-service email (manage link, RSVP link, Secret Santa link) was sent.
+const mailThrottleWindow = 10 * time.Minute
+
+// mailThrottle limits how often the public forms may trigger an email to the
+// same address, so they cannot be used to spam a third party. In memory,
+// swept opportunistically; a restart forgets it, which only means one extra
+// email.
+type mailThrottle struct {
+	mu        sync.Mutex
+	last      map[string]time.Time
+	lastSweep time.Time
+}
+
+// allow reports whether an email for key may be sent now, and if so records it.
+func (t *mailThrottle) allow(key string, now time.Time) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.last == nil {
+		t.last = map[string]time.Time{}
+	}
+	if now.Sub(t.lastSweep) > mailThrottleWindow {
+		t.lastSweep = now
+		for k, at := range t.last {
+			if now.Sub(at) > mailThrottleWindow {
+				delete(t.last, k)
+			}
+		}
+	}
+	if at, ok := t.last[key]; ok && now.Sub(at) <= mailThrottleWindow {
+		return false
+	}
+	t.last[key] = now
+	return true
+}

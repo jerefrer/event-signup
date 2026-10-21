@@ -91,6 +91,13 @@ type santaLinkEmailData struct {
 	Disclaimer                                string
 }
 
+// manageLinkEmailData feeds email_manage_link.html: a short email carrying one
+// self-service link (change/cancel a task registration, or change an RSVP).
+type manageLinkEmailData struct {
+	emailCommon
+	Greeting, Intro, ButtonText, URL, Note string
+}
+
 type santaRevealEmailData struct {
 	emailCommon
 	Greeting, Intro, ReceiverName, WishesIntro string
@@ -193,6 +200,27 @@ func renderSantaRevealEmail(lang string, giver, receiver SantaParticipant, event
 		WishFree:      receiver.WishFree,
 	}
 	return T("santa_email_reveal_subject", lang) + " " + eventTitle, renderEmailTemplate("email_santa_reveal.html", data)
+}
+
+// renderManageLinkEmail builds the email sent when someone submits a public
+// form with an address that already has a registration or an RSVP: instead of
+// showing the stored data on the page, the owner of the address gets the
+// self-service link in their inbox. subjectKey/introKey/buttonKey pick the
+// wording; intro is formatted with subject (the task or event title).
+func renderManageLinkEmail(lang, firstName, eventTitle, subjectKey, introKey, buttonKey, subject, link string) (emailSubject, html string) {
+	data := manageLinkEmailData{
+		emailCommon: emailCommon{
+			Lang:    lang,
+			Title:   eventTitle,
+			LogoURL: logoURLFromBase(baseFromURL(link)),
+		},
+		Greeting:   fmt.Sprintf(T("santa_email_greeting", lang), firstName),
+		Intro:      fmt.Sprintf(T(introKey, lang), subject),
+		ButtonText: T(buttonKey, lang),
+		URL:        link,
+		Note:       T("manage_email_ignore", lang),
+	}
+	return T(subjectKey, lang) + " " + eventTitle, renderEmailTemplate("email_manage_link.html", data)
 }
 
 // renderEmailTemplate executes an embedded email template wrapped in the

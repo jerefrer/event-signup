@@ -147,7 +147,11 @@ var translations = map[string]Translations{
 	"ai_default_one": {"fr": "Considérer que les tâches sans indications sont pour une personne maximum", "en": "Assume tasks without indication are for one person maximum"},
 
 	// Registered (returning visitor)
-	"already_registered":    {"fr": "Vous êtes déjà inscrit(e) pour cet événement.", "en": "You are already registered for this event."},
+	"already_registered_link_sent": {"fr": "Cette adresse est déjà inscrite : nous venons de vous envoyer par email le lien pour modifier ou annuler votre inscription.", "en": "This address is already registered: we have just emailed you the link to change or cancel your registration."},
+	"task_manage_email_subject":    {"fr": "Modifier ou annuler votre inscription :", "en": "Change or cancel your registration:"},
+	"task_manage_email_intro":      {"fr": "Une inscription existe déjà avec cette adresse email : vous êtes inscrit(e) à la tâche « %s ». Le bouton ci-dessous vous permet de la modifier ou de l'annuler.", "en": "A registration already exists for this email address: you are signed up for the task “%s”. Use the button below to change or cancel it."},
+	"task_manage_email_button":     {"fr": "Gérer mon inscription", "en": "Manage my registration"},
+	"manage_email_ignore":          {"fr": "Si vous n'êtes pas à l'origine de cette demande, ignorez simplement ce message : rien n'a été modifié.", "en": "If you did not make this request, simply ignore this message: nothing has been changed."},
 	"registered_title":      {"fr": "Vous êtes inscrit(e)", "en": "You are registered"},
 	"registered_for_task":   {"fr": "Votre choix :", "en": "Your choice:"},
 	"registered_change":     {"fr": "Modifier mon choix", "en": "Change my choice"},

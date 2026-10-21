@@ -33,6 +33,7 @@ type App struct {
 
 	adminSessions adminSessions
 	loginLimit    loginLimiter
+	mailLimit     mailThrottle
 }
 
 type PageData struct {
@@ -989,36 +990,41 @@ func (app *App) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if this is a "change" request (has cancel_token from localStorage)
+	// A cancel_token that matches a registration means "same device, change my
+	// choice". Anything else (no token, or one that matches nothing) is treated
+	// as a fresh signup, so a made-up token cannot skip the duplicate check.
 	cancelToken := strings.TrimSpace(r.FormValue("cancel_token"))
+	var tokenReg *Registration
 	if cancelToken != "" {
-		existingReg, _ := GetRegistrationByToken(app.DB, cancelToken)
-		if existingReg != nil {
-			if existingReg.TaskID == taskID {
-				// Same task selected — just show confirmation again
-				pd := app.newPageData(r, map[string]any{
-					"Event": event, "Task": task, "Reg": existingReg,
-					"CancelURL": fmt.Sprintf("%s/cancel/%s", app.baseURL(r), existingReg.Token),
-				})
-				app.render(w, r, "confirmation.html", pd)
-				return
-			}
-			// Delete old registration before creating new one
-			DeleteRegistrationByToken(app.DB, cancelToken)
+		// GetRegistrationByToken returns a non-nil zero value alongside its error.
+		if reg, err := GetRegistrationByToken(app.DB, cancelToken); err == nil {
+			tokenReg = reg
 		}
-	} else {
-		// No cancel_token — check for duplicate email (different device case)
-		existingReg, _ := GetRegistrationByEmailAndEvent(app.DB, email, event.ID)
-		if existingReg != nil {
-			existingTask, _ := GetTask(app.DB, existingReg.TaskID)
+	}
+	if tokenReg != nil {
+		if tokenReg.TaskID == taskID {
+			// Same task selected — just show confirmation again
 			pd := app.newPageData(r, map[string]any{
-				"Event": event, "Task": existingTask, "Reg": existingReg,
-				"CancelURL": fmt.Sprintf("%s/cancel/%s", app.baseURL(r), existingReg.Token),
+				"Event": event, "Task": task, "Reg": tokenReg,
+				"CancelURL": fmt.Sprintf("%s/cancel/%s", app.baseURL(r), tokenReg.Token),
 			})
-			pd.Success = T("already_registered", lang)
 			app.render(w, r, "confirmation.html", pd)
 			return
 		}
+		// Delete old registration before creating new one
+		DeleteRegistrationByToken(app.DB, cancelToken)
+	} else if existingReg, _ := GetRegistrationByEmailAndEvent(app.DB, email, event.ID); existingReg != nil {
+		// Someone else (or the same person on another device) typed an address
+		// that is already registered. Never echo the stored registration — its
+		// cancel token would hand over the registration (and the phone number)
+		// to whoever typed the address. Email the manage link to the address
+		// instead, at most once per 10 minutes.
+		app.sendTaskManageLink(r, event, existingReg, lang)
+		tree, _ := BuildEventTree(app.DB, event.ID)
+		pd := app.newPageData(r, map[string]any{"Event": event, "Tree": tree})
+		pd.Success = T("already_registered_link_sent", lang)
+		app.render(w, r, "public_event.html", pd)
+		return
 	}
 
 	reg, err := RegisterForTask(app.DB, taskID, firstName, lastName, email, phone)
@@ -1040,6 +1046,32 @@ func (app *App) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 		"CancelURL": fmt.Sprintf("%s/cancel/%s", app.baseURL(r), reg.Token),
 	})
 	app.render(w, r, "confirmation.html", pd)
+}
+
+// sendTaskManageLink emails the cancel/change link of an existing
+// registration to the address on file, unless one was sent in the last 10
+// minutes for the same (event, email). Failures are logged only: the page shows
+// the same message either way, so it never reveals whether delivery worked.
+func (app *App) sendTaskManageLink(r *http.Request, event *Event, reg *Registration, lang string) {
+	key := fmt.Sprintf("task:%d:%s", event.ID, strings.ToLower(reg.Email))
+	if !app.mailLimit.allow(key, app.now()) {
+		return
+	}
+	task, err := GetTask(app.DB, reg.TaskID)
+	if err != nil {
+		log.Printf("task manage email: task lookup: %v", err)
+		return
+	}
+	link := fmt.Sprintf("%s/cancel/%s?lang=%s", app.baseURL(r), reg.Token, lang)
+	subject, body := renderManageLinkEmail(lang, reg.FirstName, Localized(event.TitleFR, event.TitleEN, lang),
+		"task_manage_email_subject", "task_manage_email_intro", "task_manage_email_button",
+		Localized(task.TitleFR, task.TitleEN, lang), link)
+	if body == "" {
+		return
+	}
+	if _, err := app.Email.Send(r.Context(), reg.Email, subject, body); err != nil {
+		log.Printf("task manage email error: %v", err)
+	}
 }
 
 func (app *App) handlePublicCancel(w http.ResponseWriter, r *http.Request) {

@@ -221,62 +221,6 @@ func TestSignupTaskFull(t *testing.T) {
 
 // ---- Duplicate email (different device) ----
 
-func TestSignupDuplicateEmail(t *testing.T) {
-	app := testApp(t)
-	e := seedEvent(t, app.DB)
-	tk1 := seedTask(t, app.DB, e.ID, "Task A", int64Ptr(5))
-	tk2 := seedTask(t, app.DB, e.ID, "Task B", int64Ptr(5))
-
-	// First registration
-	RegisterForTask(app.DB, tk1.ID, "Alice", "Dupont", "alice@test.com", "0601")
-
-	// Try to register same email for different task (no cancel_token)
-	mux := newMux(app)
-	w := postForm(mux, "/signup?lang=fr", url.Values{
-		"task_id":    {fmt.Sprint(tk2.ID)},
-		"first_name": {"Alice"},
-		"last_name":  {"Dupont"},
-		"email":     {"alice@test.com"},
-		"phone":     {"0601"},
-	})
-
-	if w.Code != 200 {
-		t.Fatalf("status = %d", w.Code)
-	}
-	body := w.Body.String()
-	if !strings.Contains(body, "localStorage.setItem") {
-		t.Error("expected localStorage store for existing reg")
-	}
-
-	// Should still only have 1 registration
-	count := CountRegistrations(app.DB, e.ID)
-	if count != 1 {
-		t.Errorf("expected 1 registration, got %d", count)
-	}
-}
-
-func TestSignupDuplicateEmailCaseInsensitive(t *testing.T) {
-	app := testApp(t)
-	e := seedEvent(t, app.DB)
-	tk := seedTask(t, app.DB, e.ID, "Task", int64Ptr(5))
-
-	RegisterForTask(app.DB, tk.ID, "Alice", "Dupont", "alice@test.com", "0601")
-
-	mux := newMux(app)
-	w := postForm(mux, "/signup?lang=en", url.Values{
-		"task_id":    {fmt.Sprint(tk.ID)},
-		"first_name": {"Alice"},
-		"last_name":  {"Dupont"},
-		"email":     {"ALICE@TEST.COM"},
-		"phone":     {"0601"},
-	})
-
-	body := w.Body.String()
-	if !strings.Contains(body, "localStorage.setItem") {
-		t.Error("case-insensitive duplicate detection should show existing registration")
-	}
-}
-
 // ---- Change registration (cancel_token flow) ----
 
 func TestSignupChangeTask(t *testing.T) {
