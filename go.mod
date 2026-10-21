@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.17
 	github.com/aws/aws-sdk-go-v2/service/sesv2 v1.60.4
 	github.com/mattn/go-sqlite3 v1.14.33
+	github.com/microcosm-cc/bluemonday v1.0.27
 )
 
 require (
@@ -24,6 +25,5 @@ require (
 	github.com/aws/smithy-go v1.25.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
-	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
-	golang.org/x/net v0.26.0 // indirect
+	golang.org/x/net v0.58.0 // indirect
 )
