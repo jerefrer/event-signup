@@ -155,6 +155,7 @@ var translations = map[string]Translations{
 	"rsvp_manage_email_subject":         {"fr": "Modifier votre réponse :", "en": "Change your response:"},
 	"rsvp_manage_email_intro":           {"fr": "Une réponse existe déjà pour cette adresse email à l'événement « %s ». Le bouton ci-dessous vous permet de la modifier.", "en": "A response already exists for this email address for “%s”. Use the button below to change it."},
 	"rsvp_manage_email_button":          {"fr": "Modifier ma réponse", "en": "Change my response"},
+	"rate_limited": {"fr": "Trop de demandes depuis votre connexion. Réessayez plus tard.", "en": "Too many requests from your connection. Please try again later."},
 	"manage_email_ignore":          {"fr": "Si vous n'êtes pas à l'origine de cette demande, ignorez simplement ce message : rien n'a été modifié.", "en": "If you did not make this request, simply ignore this message: nothing has been changed."},
 	"registered_title":      {"fr": "Vous êtes inscrit(e)", "en": "You are registered"},
 	"registered_for_task":   {"fr": "Votre choix :", "en": "Your choice:"},

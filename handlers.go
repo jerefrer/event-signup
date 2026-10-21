@@ -35,6 +35,7 @@ type App struct {
 	adminSessions adminSessions
 	loginLimit    loginLimiter
 	mailLimit     mailThrottle
+	santaHits     hitLimiter
 }
 
 type PageData struct {
@@ -1316,6 +1317,15 @@ func (app *App) handleSantaRegister(w http.ResponseWriter, r *http.Request) {
 		app.render(w, r, "public_santa.html", pd)
 		return
 	}
+	// Each registration can trigger an email to an arbitrary address, so cap
+	// them per client IP (10 per hour).
+	if !app.santaHits.allow(clientIP(r), app.now(), 10, time.Hour) {
+		pd := app.newPageData(r, map[string]any{"Event": event})
+		pd.Error = T("rate_limited", lang)
+		w.WriteHeader(http.StatusTooManyRequests)
+		app.render(w, r, "public_santa.html", pd)
+		return
+	}
 	firstName := strings.TrimSpace(r.FormValue("first_name"))
 	lastName := strings.TrimSpace(r.FormValue("last_name"))
 	email := strings.TrimSpace(r.FormValue("email"))
@@ -1333,6 +1343,14 @@ func (app *App) handleSantaRegister(w http.ResponseWriter, r *http.Request) {
 		app.render(w, r, "public_santa.html", pd)
 		return
 	}
+	// At most one link email per (event, email) per 10 minutes; inside the
+	// window show the normal confirmation without sending.
+	throttleKey := fmt.Sprintf("santa:%d:%s", event.ID, strings.ToLower(p.Email))
+	if !app.mailLimit.allow(throttleKey, app.now()) {
+		pd := app.newPageData(r, map[string]any{"Event": event, "LinkSent": true})
+		app.render(w, r, "public_santa.html", pd)
+		return
+	}
 	editURL := fmt.Sprintf("%s/santa/edit?token=%s&lang=%s", app.baseURL(r), p.Token, lang)
 	subject, htmlBody := renderSantaLinkEmail(lang, *p, *event, editURL)
 	if htmlBody == "" {
@@ -1345,6 +1363,7 @@ func (app *App) handleSantaRegister(w http.ResponseWriter, r *http.Request) {
 	messageID, err := app.Email.Send(r.Context(), p.Email, subject, htmlBody, invitationAttachments()...)
 	if err != nil {
 		log.Printf("santa link email error: %v", err)
+		app.mailLimit.release(throttleKey) // nothing was sent: let the user retry
 		pd := app.newPageData(r, map[string]any{"Event": event})
 		pd.Error = T("santa_email_error", lang)
 		app.render(w, r, "public_santa.html", pd)
@@ -1574,7 +1593,7 @@ func (app *App) handleAdminSantaImport(w http.ResponseWriter, r *http.Request) {
 	created, updated := 0, 0
 	for _, row := range rows {
 		_, existsErr := GetSantaParticipantByEmail(app.DB, event.ID, row.Email)
-		if _, err := UpsertSantaParticipant(app.DB, event.ID, row.FirstName, row.LastName, row.Email, row.Lang); err != nil {
+		if _, err := ImportSantaParticipant(app.DB, event.ID, row.FirstName, row.LastName, row.Email, row.Lang); err != nil {
 			log.Printf("santa import upsert error (%s): %v", row.Email, err)
 			continue
 		}

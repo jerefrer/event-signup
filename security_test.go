@@ -752,3 +752,113 @@ func TestMailThrottle(t *testing.T) {
 		t.Error("allowed again after the window")
 	}
 }
+
+// ---- Secret Santa registration abuse ----
+
+func santaRegister(h http.Handler, eventID int64, email, ip string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodPost, "/santa/register?lang=fr", strings.NewReader(url.Values{
+		"event_id": {fmt.Sprint(eventID)}, "first_name": {"Eve"}, "last_name": {"Attacker"}, "email": {email},
+	}.Encode()))
+	req.Header.Set("Content-Type", formCT)
+	req.RemoteAddr = "127.0.0.1:4000"
+	req.Header.Set("X-Real-IP", ip)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	return w
+}
+
+func TestSantaRegisterIsRateLimitedPerIP(t *testing.T) {
+	app := testApp(t)
+	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	app.Clock = func() time.Time { return now }
+	e := seedSantaEvent(t, app.DB)
+	h := newMux(app)
+
+	for i := 0; i < 10; i++ {
+		if w := santaRegister(h, e.ID, fmt.Sprintf("p%d@test.com", i), "203.0.113.5"); w.Code != 200 {
+			t.Fatalf("registration %d: status = %d", i+1, w.Code)
+		}
+	}
+	w := santaRegister(h, e.ID, "p11@test.com", "203.0.113.5")
+	if w.Code != http.StatusTooManyRequests {
+		t.Errorf("11th registration in an hour: status = %d, want 429", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), T("rate_limited", LangFR)) {
+		t.Error("expected the translated rate-limit message")
+	}
+	if _, err := GetSantaParticipantByEmail(app.DB, e.ID, "p11@test.com"); err == nil {
+		t.Error("a rate-limited request must not create a participant")
+	}
+	if w := santaRegister(h, e.ID, "other@test.com", "203.0.113.6"); w.Code != 200 {
+		t.Errorf("another IP is unaffected, status = %d", w.Code)
+	}
+	now = now.Add(61 * time.Minute)
+	if w := santaRegister(h, e.ID, "p12@test.com", "203.0.113.5"); w.Code != 200 {
+		t.Errorf("the limit lifts after an hour, status = %d", w.Code)
+	}
+}
+
+func TestSantaRegisterSameEmailThrottled(t *testing.T) {
+	app := testApp(t)
+	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	app.Clock = func() time.Time { return now }
+	e := seedSantaEvent(t, app.DB)
+	h := newMux(app)
+	fake := app.Email.(*fakeEmailSender)
+
+	santaRegister(h, e.ID, "victim@test.com", "203.0.113.5")
+	now = now.Add(5 * time.Minute)
+	w := santaRegister(h, e.ID, "VICTIM@test.com", "203.0.113.6")
+	if fake.count() != 1 {
+		t.Errorf("second link email within 10 minutes was sent (count = %d)", fake.count())
+	}
+	if w.Code != 200 || !strings.Contains(w.Body.String(), T("santa_link_sent", LangFR)) {
+		t.Error("throttled attempt must show the normal 'link sent' message")
+	}
+	now = now.Add(6 * time.Minute)
+	santaRegister(h, e.ID, "victim@test.com", "203.0.113.7")
+	if fake.count() != 2 {
+		t.Errorf("a new link email is allowed after 10 minutes (count = %d)", fake.count())
+	}
+}
+
+func TestSantaRegisterDoesNotRenameExistingParticipant(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	UpsertSantaParticipant(app.DB, e.ID, "Alice", "Dupont", "alice@test.com", "fr")
+	santaRegister(newMux(app), e.ID, "alice@test.com", "203.0.113.5")
+	p, _ := GetSantaParticipantByEmail(app.DB, e.ID, "alice@test.com")
+	if p.FirstName != "Alice" || p.LastName != "Dupont" {
+		t.Errorf("public registration renamed an existing participant: %+v", p)
+	}
+}
+
+func TestAdminImportStillUpdatesNames(t *testing.T) {
+	app := testApp(t)
+	e := seedSantaEvent(t, app.DB)
+	UpsertSantaParticipant(app.DB, e.ID, "Alice", "Dupont", "alice@test.com", "fr")
+	mux := newMux(app)
+	csv := "email,Nom,Prénom\nalice@test.com,Martin,Alicia\n"
+	postMultipart(mux, "/admin/santa/import?lang=fr", "list.csv", csv,
+		map[string]string{"event_id": fmt.Sprint(e.ID)}, adminCookie(app))
+	p, _ := GetSantaParticipantByEmail(app.DB, e.ID, "alice@test.com")
+	if p.FirstName != "Alicia" || p.LastName != "Martin" {
+		t.Errorf("the admin CSV import is the trusted way to correct names: %+v", p)
+	}
+}
+
+func TestHitLimiter(t *testing.T) {
+	var l hitLimiter
+	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	for i := 0; i < 3; i++ {
+		if !l.allow("ip", now.Add(time.Duration(i)*time.Minute), 3, time.Hour) {
+			t.Fatalf("hit %d should pass", i+1)
+		}
+	}
+	if l.allow("ip", now.Add(10*time.Minute), 3, time.Hour) {
+		t.Error("4th hit within the window must be refused")
+	}
+	if !l.allow("ip", now.Add(61*time.Minute), 3, time.Hour) {
+		t.Error("oldest hit leaves the window after an hour")
+	}
+}

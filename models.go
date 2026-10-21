@@ -1080,15 +1080,31 @@ func scanSantaParticipant(row interface{ Scan(...any) error }) (*SantaParticipan
 	return p, err
 }
 
-// UpsertSantaParticipant creates a participant or, if one already exists for the
-// (event, email) pair, updates its name and language while preserving its token,
-// wishes and completion state.
+// UpsertSantaParticipant is the public registration path. It creates a
+// participant or, if one already exists for the (event, email) pair, only
+// refreshes its language: the name is NOT overwritten, so typing someone else's
+// address cannot rename them. Token, wishes and completion state are preserved.
 func UpsertSantaParticipant(db *sql.DB, eventID int64, firstName, lastName, email, lang string) (*SantaParticipant, error) {
+	return upsertSantaParticipant(db, eventID, firstName, lastName, email, lang, false)
+}
+
+// ImportSantaParticipant is the admin CSV import path: like
+// UpsertSantaParticipant but, the admin being trusted, it also corrects the
+// name of an existing participant.
+func ImportSantaParticipant(db *sql.DB, eventID int64, firstName, lastName, email, lang string) (*SantaParticipant, error) {
+	return upsertSantaParticipant(db, eventID, firstName, lastName, email, lang, true)
+}
+
+func upsertSantaParticipant(db *sql.DB, eventID int64, firstName, lastName, email, lang string, overwriteName bool) (*SantaParticipant, error) {
 	var id int64
 	err := db.QueryRow("SELECT id FROM santa_participants WHERE event_id=? AND LOWER(email)=LOWER(?)", eventID, email).Scan(&id)
 	if err == nil {
-		if _, err := db.Exec("UPDATE santa_participants SET first_name=?, last_name=?, lang=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-			firstName, lastName, lang, id); err != nil {
+		query, args := "UPDATE santa_participants SET lang=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", []any{lang, id}
+		if overwriteName {
+			query, args = "UPDATE santa_participants SET first_name=?, last_name=?, lang=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+				[]any{firstName, lastName, lang, id}
+		}
+		if _, err := db.Exec(query, args...); err != nil {
 			return nil, err
 		}
 		return GetSantaParticipant(db, id)

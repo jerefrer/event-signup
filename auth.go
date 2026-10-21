@@ -248,3 +248,47 @@ func (t *mailThrottle) allow(key string, now time.Time) bool {
 	t.last[key] = now
 	return true
 }
+
+// release forgets key, used when the email it guarded failed to send.
+func (t *mailThrottle) release(key string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	delete(t.last, key)
+}
+
+// hitLimiter is a sliding-window counter: at most max hits per key within
+// window. Refused hits are not recorded, so a blocked client is released as
+// soon as its oldest recorded hit ages out. In memory, swept opportunistically.
+type hitLimiter struct {
+	mu        sync.Mutex
+	hits      map[string][]time.Time
+	lastSweep time.Time
+}
+
+func (l *hitLimiter) allow(key string, now time.Time, max int, window time.Duration) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.hits == nil {
+		l.hits = map[string][]time.Time{}
+	}
+	if now.Sub(l.lastSweep) > window {
+		l.lastSweep = now
+		for k, ts := range l.hits {
+			if len(ts) == 0 || now.Sub(ts[len(ts)-1]) > window {
+				delete(l.hits, k)
+			}
+		}
+	}
+	recent := l.hits[key][:0]
+	for _, ts := range l.hits[key] {
+		if now.Sub(ts) < window {
+			recent = append(recent, ts)
+		}
+	}
+	if len(recent) >= max {
+		l.hits[key] = recent
+		return false
+	}
+	l.hits[key] = append(recent, now)
+	return true
+}

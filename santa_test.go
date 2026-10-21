@@ -58,8 +58,11 @@ func TestSantaParticipantCRUD(t *testing.T) {
 	if p2.Token != p.Token {
 		t.Error("token must be preserved on upsert")
 	}
-	if p2.LastName != "Martin" || p2.Lang != "en" {
-		t.Errorf("update not applied: %+v", p2)
+	if p2.LastName != "Dupont" || p2.FirstName != "Alice" {
+		t.Errorf("a re-registration must not overwrite the name: %+v", p2)
+	}
+	if p2.Lang != "en" {
+		t.Errorf("lang should still follow the latest registration: %+v", p2)
 	}
 
 	byTok, err := GetSantaParticipantByToken(db, p.Token)
