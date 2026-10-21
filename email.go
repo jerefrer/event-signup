@@ -157,8 +157,9 @@ func emailOverrideOrDefault(frOverride, enOverride, lang, fallbackKey string) st
 // matching i18n key when the override is empty.
 func renderSantaLinkEmail(lang string, p SantaParticipant, event Event, editURL string) (subject, html string) {
 	eventTitle := Localized(event.TitleFR, event.TitleEN, lang)
-	// Description is admin-authored HTML, sanitized at save time — render as-is.
-	desc := template.HTML(Localized(event.DescriptionFR, event.DescriptionEN, lang))
+	// Description is admin-authored HTML, sanitized at save time and again here
+	// so a stored value that skipped the write path cannot inject markup.
+	desc := template.HTML(sanitizeEventDescription(Localized(event.DescriptionFR, event.DescriptionEN, lang)))
 	data := santaLinkEmailData{
 		emailCommon: emailCommon{
 			Lang:    lang,

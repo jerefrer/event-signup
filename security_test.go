@@ -912,3 +912,39 @@ func TestCSVExportsNeutralizeFormulas(t *testing.T) {
 		}
 	}
 }
+
+// ---- Rich-text descriptions are sanitized again at render time ----
+
+func TestStoredDescriptionIsSanitizedWhenRendered(t *testing.T) {
+	const evil = `<p>Bonjour <strong>tous</strong></p><script>alert("xss")</script><a href="javascript:alert(1)">clic</a><img src=x onerror=alert(2)>`
+	app := testApp(t)
+	h := newMux(app)
+	for _, typ := range []string{"tasks", "attendance", "secret_santa"} {
+		e := &Event{TitleFR: "T " + typ, TitleEN: "T", DescriptionFR: evil, DescriptionEN: evil, EventDate: "2026-06-15", EventType: typ}
+		if err := CreateEvent(app.DB, e); err != nil {
+			t.Fatal(err)
+		}
+		for _, lang := range []string{"fr", "en"} {
+			body := getRequest(h, "/e/"+e.Slug+"?lang="+lang).Body.String()
+			if !strings.Contains(body, "<strong>tous</strong>") {
+				t.Errorf("%s/%s: allowed markup must survive", typ, lang)
+			}
+			for _, bad := range []string{`<script>alert("xss")`, "javascript:", "onerror", "<img src=x"} {
+				if strings.Contains(body, bad) {
+					t.Errorf("%s/%s: rendered page still contains %q", typ, lang, bad)
+				}
+			}
+		}
+	}
+}
+
+func TestSantaLinkEmailSanitizesDescription(t *testing.T) {
+	e := Event{TitleFR: "T", DescriptionFR: `<p>ok</p><script>alert(1)</script>`, EventDate: "2026-01-01"}
+	_, html := renderSantaLinkEmail("fr", SantaParticipant{FirstName: "A"}, e, "https://x.example/santa/edit?token=t")
+	if strings.Contains(html, "<script>alert") {
+		t.Error("the email must not carry a script from a stored description")
+	}
+	if !strings.Contains(html, "<p>ok</p>") {
+		t.Error("allowed markup must survive in the email")
+	}
+}
