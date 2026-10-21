@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -92,7 +93,78 @@ func securityHeaders(next http.Handler) http.Handler {
 	})
 }
 
+// allowedOrigins lists the origins a same-site browser request may carry: the
+// configured base URL's origin, or — with no base URL (development) — the
+// request's own Host over either scheme.
+func (app *App) allowedOrigins(r *http.Request) []string {
+	if base := strings.TrimRight(app.BaseURL, "/"); base != "" {
+		if u, err := url.Parse(base); err == nil && u.Scheme != "" && u.Host != "" {
+			return []string{strings.ToLower(u.Scheme + "://" + u.Host)}
+		}
+	}
+	return []string{"http://" + strings.ToLower(r.Host), "https://" + strings.ToLower(r.Host)}
+}
+
+// checkOrigin is the CSRF defence for state-changing requests. A browser sends
+// Origin (or at least Referer) on cross-site POSTs; if present it must match
+// our own origin. Admin routes additionally refuse requests carrying neither
+// header, while public routes tolerate that (old clients and privacy tools
+// that strip both). The SES webhook is exempt: SNS is not a browser.
+// Admin JSON APIs must also be called with Content-Type: application/json, which
+// a cross-site HTML form cannot produce.
+func (app *App) checkOrigin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+		default:
+			next.ServeHTTP(w, r)
+			return
+		}
+		if r.URL.Path == "/webhooks/ses" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		origins := app.allowedOrigins(r)
+		origin, referer := r.Header.Get("Origin"), r.Header.Get("Referer")
+		switch {
+		case origin != "":
+			if !containsFold(origins, origin) {
+				http.Error(w, "forbidden: cross-origin request", http.StatusForbidden)
+				return
+			}
+		case referer != "":
+			ok := false
+			for _, o := range origins {
+				if strings.HasPrefix(strings.ToLower(referer), o+"/") {
+					ok = true
+				}
+			}
+			if !ok {
+				http.Error(w, "forbidden: cross-origin request", http.StatusForbidden)
+				return
+			}
+		case isAdminPath(r.URL.Path):
+			http.Error(w, "forbidden: missing Origin", http.StatusForbidden)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/admin/api/") && !isJSONContentType(r.Header.Get("Content-Type")) {
+			http.Error(w, `{"error":"content type must be application/json"}`, http.StatusUnsupportedMediaType)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func containsFold(list []string, v string) bool {
+	for _, s := range list {
+		if strings.EqualFold(s, v) {
+			return true
+		}
+	}
+	return false
+}
+
 // secure wraps the whole mux in the app's security middleware chain.
 func (app *App) secure(next http.Handler) http.Handler {
-	return securityHeaders(limitBody(next))
+	return securityHeaders(limitBody(app.checkOrigin(next)))
 }

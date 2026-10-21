@@ -481,3 +481,155 @@ func TestLogoutInvalidatesTokenServerSide(t *testing.T) {
 		t.Errorf("replayed token after logout: status = %d, want redirect", w.Code)
 	}
 }
+
+// ---- Origin / CSRF check ----
+
+// send issues a request through the secure chain with extra headers.
+func send(h http.Handler, method, path, contentType, body string, headers map[string]string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	return w
+}
+
+const formCT = "application/x-www-form-urlencoded"
+
+func TestCrossOriginPostToAdminIsRejected(t *testing.T) {
+	app := testApp(t)
+	app.BaseURL = "https://events.example.org"
+	e := seedEvent(t, app.DB)
+	h := secureMux(app)
+	body := url.Values{"id": {fmt.Sprint(e.ID)}}.Encode()
+	c := adminCookie(app)
+
+	w := send(h, http.MethodPost, "/admin/santa/participant/delete", formCT, body,
+		map[string]string{"Origin": "https://evil.example"}, c)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("cross-origin admin POST: status = %d, want 403", w.Code)
+	}
+	w = send(h, http.MethodPost, "/admin/santa/participant/delete", formCT, body,
+		map[string]string{"Origin": "null"}, c)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("Origin: null admin POST: status = %d, want 403", w.Code)
+	}
+	w = send(h, http.MethodPost, "/admin/santa/participant/delete", formCT, body,
+		map[string]string{"Referer": "https://evil.example/page"}, c)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("cross-origin Referer: status = %d, want 403", w.Code)
+	}
+	w = send(h, http.MethodPost, "/admin/santa/participant/delete", formCT, body, nil, c)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("admin POST without Origin or Referer: status = %d, want 403", w.Code)
+	}
+}
+
+func TestSameOriginPostToAdminIsAccepted(t *testing.T) {
+	app := testApp(t)
+	app.BaseURL = "https://events.example.org"
+	e := seedEvent(t, app.DB)
+	h := secureMux(app)
+	body := url.Values{"event_id": {fmt.Sprint(e.ID)}, "id": {"1"}}.Encode()
+	c := adminCookie(app)
+
+	w := send(h, http.MethodPost, "/admin/santa/participant/delete", formCT, body,
+		map[string]string{"Origin": "https://events.example.org"}, c)
+	if w.Code == http.StatusForbidden {
+		t.Error("same-origin admin POST (Origin) must pass")
+	}
+	w = send(h, http.MethodPost, "/admin/santa/participant/delete", formCT, body,
+		map[string]string{"Referer": "https://events.example.org/admin/event/edit?id=1"}, c)
+	if w.Code == http.StatusForbidden {
+		t.Error("same-origin admin POST (Referer) must pass")
+	}
+}
+
+func TestOriginCheckFallsBackToRequestHostWithoutBaseURL(t *testing.T) {
+	app := testApp(t)
+	h := secureMux(app)
+	// httptest requests carry Host: example.com
+	w := send(h, http.MethodPost, "/admin/santa/participant/delete", formCT, "id=1",
+		map[string]string{"Origin": "http://example.com"}, adminCookie(app))
+	if w.Code == http.StatusForbidden {
+		t.Error("Origin matching r.Host must pass when no base URL is configured")
+	}
+	w = send(h, http.MethodPost, "/admin/santa/participant/delete", formCT, "id=1",
+		map[string]string{"Origin": "http://evil.example"}, adminCookie(app))
+	if w.Code != http.StatusForbidden {
+		t.Errorf("foreign Origin: status = %d, want 403", w.Code)
+	}
+}
+
+func TestPublicPostWithoutOriginOrRefererIsAllowed(t *testing.T) {
+	app := testApp(t)
+	app.BaseURL = "https://events.example.org"
+	e := seedSantaEvent(t, app.DB)
+	w := send(secureMux(app), http.MethodPost, "/santa/register?lang=fr", formCT, url.Values{
+		"event_id": {fmt.Sprint(e.ID)}, "first_name": {"A"}, "last_name": {"B"}, "email": {"a@b.co"},
+	}.Encode(), nil)
+	if w.Code != 200 {
+		t.Errorf("public POST with no Origin/Referer: status = %d, want 200 (old clients)", w.Code)
+	}
+}
+
+func TestCrossOriginPublicPostIsRejected(t *testing.T) {
+	app := testApp(t)
+	app.BaseURL = "https://events.example.org"
+	e := seedSantaEvent(t, app.DB)
+	w := send(secureMux(app), http.MethodPost, "/santa/register?lang=fr", formCT, url.Values{
+		"event_id": {fmt.Sprint(e.ID)}, "first_name": {"A"}, "last_name": {"B"}, "email": {"a@b.co"},
+	}.Encode(), map[string]string{"Origin": "https://evil.example"})
+	if w.Code != http.StatusForbidden {
+		t.Errorf("cross-origin public POST: status = %d, want 403", w.Code)
+	}
+	if app.Email.(*fakeEmailSender).count() != 0 {
+		t.Error("a rejected request must not send email")
+	}
+}
+
+func TestWebhookIsExemptFromOriginCheck(t *testing.T) {
+	app := testApp(t)
+	app.BaseURL = "https://events.example.org"
+	w := send(secureMux(app), http.MethodPost, "/webhooks/ses", "text/plain", `{"Type":"Notification","Message":"{}"}`,
+		map[string]string{"Origin": "https://sns.eu-west-1.amazonaws.com"})
+	if w.Code != 200 {
+		t.Errorf("webhook: status = %d, want 200", w.Code)
+	}
+}
+
+func TestSafeMethodsSkipOriginCheck(t *testing.T) {
+	app := testApp(t)
+	app.BaseURL = "https://events.example.org"
+	w := send(secureMux(app), http.MethodGet, "/admin/login", "", "",
+		map[string]string{"Origin": "https://evil.example"})
+	if w.Code != 200 {
+		t.Errorf("GET: status = %d, want 200", w.Code)
+	}
+}
+
+func TestAdminAPIRequiresJSONContentType(t *testing.T) {
+	app := testApp(t)
+	app.BaseURL = "https://events.example.org"
+	mux := http.NewServeMux()
+	mux.HandleFunc("/admin/api/group/delete", app.requireAdmin(app.handleAPIGroupDelete))
+	h := app.secure(mux)
+	hdr := map[string]string{"Origin": "https://events.example.org"}
+	c := adminCookie(app)
+
+	w := send(h, http.MethodPost, "/admin/api/group/delete", "text/plain", `{"id":1}`, hdr, c)
+	if w.Code != http.StatusUnsupportedMediaType {
+		t.Errorf("text/plain: status = %d, want 415", w.Code)
+	}
+	w = send(h, http.MethodPost, "/admin/api/group/delete", "application/json; charset=utf-8", `{"id":1}`, hdr, c)
+	if w.Code != 200 {
+		t.Errorf("application/json: status = %d, want 200", w.Code)
+	}
+}
