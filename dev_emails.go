@@ -42,7 +42,7 @@ func (app *App) handleDevEmailSantaLink(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "preview unavailable: "+err.Error(), http.StatusNotFound)
 		return
 	}
-	editURL := fmt.Sprintf("%s/santa/edit?token=%s&lang=%s", baseURLFor(r), p.Token, lang)
+	editURL := fmt.Sprintf("%s/santa/edit?token=%s&lang=%s", app.baseURL(r), p.Token, lang)
 	_, html := renderSantaLinkEmail(lang, *p, *event, editURL)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprint(w, html)
@@ -58,7 +58,7 @@ func (app *App) handleDevEmailSantaReveal(w http.ResponseWriter, r *http.Request
 		http.Error(w, "preview unavailable: "+err.Error(), http.StatusNotFound)
 		return
 	}
-	_, html := renderSantaRevealEmail(lang, *giver, *receiver, *event, baseURLFor(r))
+	_, html := renderSantaRevealEmail(lang, *giver, *receiver, *event, app.baseURL(r))
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprint(w, html)
 }

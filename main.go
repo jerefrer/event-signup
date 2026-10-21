@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -120,6 +121,10 @@ func main() {
 		Email:          emailSender,
 		EmailSendDelay: emailDelay,
 		AsyncEmail:     true,
+		BaseURL:        strings.TrimRight(os.Getenv("EVENT_SIGNUP_BASE_URL"), "/"),
+	}
+	if app.BaseURL == "" {
+		log.Println("WARNING: EVENT_SIGNUP_BASE_URL not set — links fall back to the request Host (development only)")
 	}
 
 	mux := http.NewServeMux()

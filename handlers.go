@@ -28,26 +28,7 @@ type App struct {
 	AsyncEmail     bool          // true in production: reveal emails sent in a goroutine
 	sending        sync.Map      // event ID -> bool, guards concurrent reveal sends
 	SNSSkipVerify  bool          // true in tests: skip SNS signature verification
-}
-
-// baseURLFor derives the public base URL (scheme://host) from the incoming
-// request. Honors X-Forwarded-Proto / X-Forwarded-Host when set by a reverse
-// proxy. Used to build links that point back to the server the user is
-// actually hitting — so a developer on localhost gets localhost links, and a
-// user on the production domain gets production links.
-func baseURLFor(r *http.Request) string {
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
-		scheme = proto
-	}
-	host := r.Host
-	if h := r.Header.Get("X-Forwarded-Host"); h != "" {
-		host = h
-	}
-	return scheme + "://" + host
+	BaseURL        string        // public base URL (EVENT_SIGNUP_BASE_URL); never derived from request headers
 }
 
 type PageData struct {
@@ -290,7 +271,7 @@ func (app *App) handleAdminEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	pd := app.newPageData(r, map[string]any{
 		"Events":  events,
-		"BaseURL": baseURLFor(r),
+		"BaseURL": app.baseURL(r),
 	})
 	app.render(w, r, "admin_events.html", pd)
 }
@@ -373,7 +354,7 @@ func (app *App) eventEditData(r *http.Request, event *Event) map[string]any {
 	data := map[string]any{
 		"Event":   event,
 		"IsNew":   false,
-		"BaseURL": baseURLFor(r),
+		"BaseURL": app.baseURL(r),
 	}
 
 	if event.EventType == "attendance" {
@@ -734,7 +715,7 @@ func (app *App) handleAPIEventEmailPreview(w http.ResponseWriter, r *http.Reques
 		EmailDisclaimerFR: req.EmailDisclaimerFR,
 		EmailDisclaimerEN: req.EmailDisclaimerEN,
 	}
-	base := baseURLFor(r)
+	base := app.baseURL(r)
 	pFR := SantaParticipant{FirstName: "Marie"}
 	pEN := SantaParticipant{FirstName: "Mary"}
 	_, frHTML := renderSantaLinkEmail("fr", pFR, e, base+"/santa/edit?token=preview")
@@ -997,7 +978,7 @@ func (app *App) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 				// Same task selected — just show confirmation again
 				pd := app.newPageData(r, map[string]any{
 					"Event": event, "Task": task, "Reg": existingReg,
-					"CancelURL": fmt.Sprintf("%s/cancel/%s", baseURLFor(r), existingReg.Token),
+					"CancelURL": fmt.Sprintf("%s/cancel/%s", app.baseURL(r), existingReg.Token),
 				})
 				app.render(w, r, "confirmation.html", pd)
 				return
@@ -1012,7 +993,7 @@ func (app *App) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 			existingTask, _ := GetTask(app.DB, existingReg.TaskID)
 			pd := app.newPageData(r, map[string]any{
 				"Event": event, "Task": existingTask, "Reg": existingReg,
-				"CancelURL": fmt.Sprintf("%s/cancel/%s", baseURLFor(r), existingReg.Token),
+				"CancelURL": fmt.Sprintf("%s/cancel/%s", app.baseURL(r), existingReg.Token),
 			})
 			pd.Success = T("already_registered", lang)
 			app.render(w, r, "confirmation.html", pd)
@@ -1036,7 +1017,7 @@ func (app *App) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 
 	pd := app.newPageData(r, map[string]any{
 		"Event": event, "Task": task, "Reg": reg,
-		"CancelURL": fmt.Sprintf("%s/cancel/%s", baseURLFor(r), reg.Token),
+		"CancelURL": fmt.Sprintf("%s/cancel/%s", app.baseURL(r), reg.Token),
 	})
 	app.render(w, r, "confirmation.html", pd)
 }
@@ -1255,7 +1236,7 @@ func (app *App) handleSantaRegister(w http.ResponseWriter, r *http.Request) {
 		app.render(w, r, "public_santa.html", pd)
 		return
 	}
-	editURL := fmt.Sprintf("%s/santa/edit?token=%s&lang=%s", baseURLFor(r), p.Token, lang)
+	editURL := fmt.Sprintf("%s/santa/edit?token=%s&lang=%s", app.baseURL(r), p.Token, lang)
 	subject, htmlBody := renderSantaLinkEmail(lang, *p, *event, editURL)
 	if htmlBody == "" {
 		log.Printf("santa link email render returned empty body for event %d", event.ID)
@@ -1412,7 +1393,7 @@ func (app *App) handleAdminSantaDraw(w http.ResponseWriter, r *http.Request) {
 		app.santaRedirect(w, r, event.ID)
 		return
 	}
-	app.dispatchRevealEmails(event.ID, baseURLFor(r))
+	app.dispatchRevealEmails(event.ID, app.baseURL(r))
 	setFlash(w, "success", T("santa_admin_draw_done", lang))
 	app.santaRedirect(w, r, event.ID)
 }
@@ -1430,7 +1411,7 @@ func (app *App) handleAdminSantaResend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if event.SantaDrawnAt.Valid {
-		app.dispatchRevealEmails(event.ID, baseURLFor(r))
+		app.dispatchRevealEmails(event.ID, app.baseURL(r))
 		setFlash(w, "success", T("santa_admin_resend_done", lang))
 	}
 	app.santaRedirect(w, r, event.ID)
@@ -1526,7 +1507,7 @@ func (app *App) handleAdminSantaInvite(w http.ResponseWriter, r *http.Request) {
 		app.santaRedirect(w, r, event.ID)
 		return
 	}
-	app.dispatchInviteEmails(event.ID, baseURLFor(r))
+	app.dispatchInviteEmails(event.ID, app.baseURL(r))
 	setFlash(w, "success", T("santa_invite_done", lang))
 	app.santaRedirect(w, r, event.ID)
 }
