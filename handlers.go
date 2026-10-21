@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/subtle"
 	"database/sql"
 	"encoding/base64"
 	"encoding/csv"
@@ -945,7 +946,16 @@ func (app *App) handlePublicEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if event.EventType == "attendance" {
-		pd := app.newPageData(r, map[string]any{"Event": event})
+		data := map[string]any{"Event": event}
+		// Link from the "already answered" email: prefill the form with that
+		// RSVP (open for editing, not the read-only confirmation card).
+		if tok := strings.TrimSpace(r.URL.Query().Get("rsvp")); tok != "" {
+			if att, err := GetAttendanceByToken(app.DB, tok, event.ID); err == nil {
+				data["Attendance"] = att
+				data["ShowForm"] = true
+			}
+		}
+		pd := app.newPageData(r, data)
 		app.render(w, r, "public_attendance.html", pd)
 		return
 	}
@@ -1132,6 +1142,20 @@ func (app *App) handlePublicRSVP(w http.ResponseWriter, r *http.Request) {
 
 	attending := attendingStr == "yes"
 
+	// An address that already answered may only be updated by whoever holds the
+	// RSVP token (same device, or the emailed link). Anyone else gets the link
+	// by email instead — never an overwrite, never the stored data.
+	if existing, err := GetAttendanceByEmail(app.DB, email, event.ID); err == nil {
+		token := strings.TrimSpace(r.FormValue("token"))
+		if token == "" || subtle.ConstantTimeCompare([]byte(token), []byte(existing.Token)) != 1 {
+			app.sendRSVPLink(r, event, existing, lang)
+			pd := app.newPageData(r, map[string]any{"Event": event})
+			pd.Success = T("rsvp_already_registered_link_sent", lang)
+			app.render(w, r, "public_attendance.html", pd)
+			return
+		}
+	}
+
 	att, err := UpsertAttendance(app.DB, event.ID, firstName, lastName, email, phone, attending, message)
 	if err != nil {
 		log.Printf("rsvp error: %v", err)
@@ -1153,6 +1177,26 @@ func (app *App) handlePublicRSVP(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "public_attendance.html", pd)
 }
 
+// sendRSVPLink emails the edit link of an existing RSVP to the address on
+// file, at most once per (event, email) per 10 minutes. Failures are only
+// logged so the page cannot reveal whether delivery worked.
+func (app *App) sendRSVPLink(r *http.Request, event *Event, att *Attendance, lang string) {
+	key := fmt.Sprintf("rsvp:%d:%s", event.ID, strings.ToLower(att.Email))
+	if !app.mailLimit.allow(key, app.now()) {
+		return
+	}
+	title := Localized(event.TitleFR, event.TitleEN, lang)
+	link := fmt.Sprintf("%s/e/%s?rsvp=%s&lang=%s", app.baseURL(r), event.Slug, att.Token, lang)
+	subject, body := renderManageLinkEmail(lang, att.FirstName, title,
+		"rsvp_manage_email_subject", "rsvp_manage_email_intro", "rsvp_manage_email_button", title, link)
+	if body == "" {
+		return
+	}
+	if _, err := app.Email.Send(r.Context(), att.Email, subject, body); err != nil {
+		log.Printf("rsvp link email error: %v", err)
+	}
+}
+
 func (app *App) handlePublicRSVPLookup(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, `{"error":"method not allowed"}`, 405)
@@ -1160,13 +1204,14 @@ func (app *App) handlePublicRSVPLookup(w http.ResponseWriter, r *http.Request) {
 	}
 	var req struct {
 		EventID int64  `json:"event_id"`
-		Email   string `json:"email"`
+		Token   string `json:"token"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error":"bad request"}`, 400)
 		return
 	}
-	att, err := GetAttendanceByEmail(app.DB, req.Email, req.EventID)
+	// Looked up by secret token only: an email address is not a credential.
+	att, err := GetAttendanceByToken(app.DB, req.Token, req.EventID)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"found":false}`))

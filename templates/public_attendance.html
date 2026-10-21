@@ -2,6 +2,7 @@
 {{$data := .Data}}
 {{$event := index $data "Event"}}
 {{$att := index $data "Attendance"}}
+{{$showForm := index $data "ShowForm"}}
 
 <div class="event-header">
     <h1>{{loc $event.TitleFR $event.TitleEN}}</h1>
@@ -17,7 +18,7 @@
     {{end}}
 </div>
 
-<div id="rsvp-confirmed" {{if not $att}}style="display:none"{{end}}>
+<div id="rsvp-confirmed" {{if or (not $att) $showForm}}style="display:none"{{end}}>
     <div class="registered-card card">
         <div id="confirm-icon" class="confirmation-icon{{if and $att (not $att.Attending)}} confirmation-icon-cancel{{end}}" aria-hidden="true">{{if and $att $att.Attending}}&#x2713;{{else}}&#x2717;{{end}}</div>
         <h2 id="confirm-title">{{if and $att $att.Attending}}{{t "rsvp_confirmed_yes"}}{{else}}{{t "rsvp_confirmed_no"}}{{end}}</h2>
@@ -29,8 +30,9 @@
     </div>
 </div>
 
-<form id="rsvp-form" method="POST" action="/rsvp?lang={{lang}}" class="signup-unified" {{if $att}}style="display:none"{{end}}>
+<form id="rsvp-form" method="POST" action="/rsvp?lang={{lang}}" class="signup-unified" {{if and $att (not $showForm)}}style="display:none"{{end}}>
     <input type="hidden" name="event_id" value="{{$event.ID}}">
+    <input type="hidden" name="token" id="rsvp-token" value="{{if $att}}{{$att.Token}}{{end}}">
     <section class="panel">
         <h2 class="panel-title">{{t "rsvp_title"}}</h2>
         <div class="panel-body">
@@ -118,18 +120,21 @@
             email: {{json $att.Email}},
             firstName: {{json $att.FirstName}},
             lastName: {{json $att.LastName}},
-            attending: {{json $att.Attending}}
+            attending: {{json $att.Attending}},
+            token: {{json $att.Token}}
         }));
     } catch(e) {}
     {{else}}
     // If returning user has a stored RSVP, auto-fetch their current response
     try {
         var storedRsvp = JSON.parse(localStorage.getItem(storageKey));
-        if (storedRsvp && storedRsvp.email) {
+        // The RSVP is looked up by its secret token. Entries saved before
+        // tokens existed have none: treat them as "no stored RSVP" (empty form).
+        if (storedRsvp && storedRsvp.token) {
             fetch('/rsvp/lookup', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({event_id: eventId, email: storedRsvp.email})
+                body: JSON.stringify({event_id: eventId, token: storedRsvp.token})
             })
             .then(function(r) { return r.json(); })
             .then(function(data) {
@@ -140,6 +145,7 @@
                     document.getElementById('email').value = data.email;
                     document.getElementById('phone').value = data.phone || '';
                     document.getElementById('message').value = data.message || '';
+                    document.getElementById('rsvp-token').value = storedRsvp.token;
                     var radios = document.querySelectorAll('input[name=attending]');
                     radios.forEach(function(r) {
                         r.checked = (data.attending && r.value === 'yes') || (!data.attending && r.value === 'no');

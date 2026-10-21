@@ -76,11 +76,13 @@ CREATE TABLE IF NOT EXISTS attendances (
     phone TEXT NOT NULL DEFAULT '',
     attending INTEGER NOT NULL DEFAULT 1,
     message TEXT NOT NULL DEFAULT '',
+    token TEXT NOT NULL DEFAULT '',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_attendances_event ON attendances(event_id);
+CREATE INDEX IF NOT EXISTS idx_attendances_token ON attendances(token);
 
 CREATE TABLE IF NOT EXISTS santa_participants (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

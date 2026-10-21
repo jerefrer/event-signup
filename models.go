@@ -154,9 +154,14 @@ func InitDB(dbPath string) (*sql.DB, error) {
 	// Drop the old name column so its NOT NULL constraint doesn't block new INSERTs
 	migrateDropColumn(db, "registrations", "name")
 
+	// RSVP self-service token (see handlePublicRSVP).
+	migrateColumn(db, "attendances", "token", "ALTER TABLE attendances ADD COLUMN token TEXT NOT NULL DEFAULT ''")
+
 	if _, err := db.Exec(schemaSQL); err != nil {
 		return nil, fmt.Errorf("schema init: %w", err)
 	}
+
+	backfillAttendanceTokens(db)
 
 	// One-off data migrations for the event description field, now that it
 	// stores HTML (Trix-edited) instead of plain text. Idempotent — safe to
@@ -164,6 +169,27 @@ func InitDB(dbPath string) (*sql.DB, error) {
 	migrateEventDescriptions(db)
 
 	return db, nil
+}
+
+// backfillAttendanceTokens gives every attendance row that predates the token
+// column a fresh random token. Idempotent: rows that already have one are left
+// alone. Ids are collected first because the pool has a single connection.
+func backfillAttendanceTokens(db *sql.DB) {
+	rows, err := db.Query("SELECT id FROM attendances WHERE token = ''")
+	if err != nil {
+		return
+	}
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if rows.Scan(&id) == nil {
+			ids = append(ids, id)
+		}
+	}
+	rows.Close()
+	for _, id := range ids {
+		db.Exec("UPDATE attendances SET token=? WHERE id=?", GenerateToken(), id)
+	}
 }
 
 // migrateEventDescriptions backfills event description data after the
@@ -909,6 +935,7 @@ func CollectTaskViews(tree []TreeNode) []TaskView {
 // ---- Attendance (RSVP) ----
 
 type Attendance struct {
+	Token     string // 128-bit secret proving ownership of the RSVP (self-service edit link)
 	ID        int64
 	EventID   int64
 	FirstName string
@@ -942,8 +969,8 @@ func UpsertAttendance(db *sql.DB, eventID int64, firstName, lastName, email, pho
 	}
 	// Insert new
 	res, err := db.Exec(
-		"INSERT INTO attendances (event_id, first_name, last_name, email, phone, attending, message) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		eventID, firstName, lastName, email, phone, attendingInt, message,
+		"INSERT INTO attendances (event_id, first_name, last_name, email, phone, attending, message, token) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		eventID, firstName, lastName, email, phone, attendingInt, message, GenerateToken(),
 	)
 	if err != nil {
 		return nil, err
@@ -956,8 +983,8 @@ func GetAttendance(db *sql.DB, id int64) (*Attendance, error) {
 	a := &Attendance{}
 	var attendingInt int
 	err := db.QueryRow(
-		"SELECT id, event_id, first_name, last_name, email, phone, attending, message, created_at, updated_at FROM attendances WHERE id=?", id,
-	).Scan(&a.ID, &a.EventID, &a.FirstName, &a.LastName, &a.Email, &a.Phone, &attendingInt, &a.Message, &a.CreatedAt, &a.UpdatedAt)
+		"SELECT id, event_id, first_name, last_name, email, phone, attending, message, token, created_at, updated_at FROM attendances WHERE id=?", id,
+	).Scan(&a.ID, &a.EventID, &a.FirstName, &a.LastName, &a.Email, &a.Phone, &attendingInt, &a.Message, &a.Token, &a.CreatedAt, &a.UpdatedAt)
 	a.Attending = attendingInt != 0
 	return a, err
 }
@@ -966,8 +993,26 @@ func GetAttendanceByEmail(db *sql.DB, email string, eventID int64) (*Attendance,
 	a := &Attendance{}
 	var attendingInt int
 	err := db.QueryRow(
-		"SELECT id, event_id, first_name, last_name, email, phone, attending, message, created_at, updated_at FROM attendances WHERE LOWER(email)=LOWER(?) AND event_id=?", email, eventID,
-	).Scan(&a.ID, &a.EventID, &a.FirstName, &a.LastName, &a.Email, &a.Phone, &attendingInt, &a.Message, &a.CreatedAt, &a.UpdatedAt)
+		"SELECT id, event_id, first_name, last_name, email, phone, attending, message, token, created_at, updated_at FROM attendances WHERE LOWER(email)=LOWER(?) AND event_id=?", email, eventID,
+	).Scan(&a.ID, &a.EventID, &a.FirstName, &a.LastName, &a.Email, &a.Phone, &attendingInt, &a.Message, &a.Token, &a.CreatedAt, &a.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	a.Attending = attendingInt != 0
+	return a, nil
+}
+
+// GetAttendanceByToken returns the attendance of eventID owning token. An
+// empty token never matches (legacy rows are backfilled, but be explicit).
+func GetAttendanceByToken(db *sql.DB, token string, eventID int64) (*Attendance, error) {
+	if token == "" {
+		return nil, sql.ErrNoRows
+	}
+	a := &Attendance{}
+	var attendingInt int
+	err := db.QueryRow(
+		"SELECT id, event_id, first_name, last_name, email, phone, attending, message, token, created_at, updated_at FROM attendances WHERE token=? AND event_id=?", token, eventID,
+	).Scan(&a.ID, &a.EventID, &a.FirstName, &a.LastName, &a.Email, &a.Phone, &attendingInt, &a.Message, &a.Token, &a.CreatedAt, &a.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -977,7 +1022,7 @@ func GetAttendanceByEmail(db *sql.DB, email string, eventID int64) (*Attendance,
 
 func ListAttendances(db *sql.DB, eventID int64) ([]Attendance, error) {
 	rows, err := db.Query(
-		"SELECT id, event_id, first_name, last_name, email, phone, attending, message, created_at, updated_at FROM attendances WHERE event_id=? ORDER BY last_name, first_name", eventID,
+		"SELECT id, event_id, first_name, last_name, email, phone, attending, message, token, created_at, updated_at FROM attendances WHERE event_id=? ORDER BY last_name, first_name", eventID,
 	)
 	if err != nil {
 		return nil, err
@@ -987,7 +1032,7 @@ func ListAttendances(db *sql.DB, eventID int64) ([]Attendance, error) {
 	for rows.Next() {
 		var a Attendance
 		var attendingInt int
-		rows.Scan(&a.ID, &a.EventID, &a.FirstName, &a.LastName, &a.Email, &a.Phone, &attendingInt, &a.Message, &a.CreatedAt, &a.UpdatedAt)
+		rows.Scan(&a.ID, &a.EventID, &a.FirstName, &a.LastName, &a.Email, &a.Phone, &attendingInt, &a.Message, &a.Token, &a.CreatedAt, &a.UpdatedAt)
 		a.Attending = attendingInt != 0
 		attendances = append(attendances, a)
 	}
