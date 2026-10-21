@@ -36,6 +36,7 @@ var translations = map[string]Translations{
 	"admin_password":    {"fr": "Mot de passe", "en": "Password"},
 	"admin_login_btn":   {"fr": "Se connecter", "en": "Log in"},
 	"admin_login_error": {"fr": "Mot de passe incorrect", "en": "Incorrect password"},
+	"admin_login_locked": {"fr": "Trop de tentatives. Réessayez plus tard.", "en": "Too many attempts. Please try again later."},
 	"admin_logout":      {"fr": "Déconnexion", "en": "Log out"},
 
 	// Events list

@@ -24,11 +24,15 @@ type App struct {
 	AnthropicKey  string
 
 	Email          EmailSender
-	EmailSendDelay time.Duration // pause between reveal emails (rate limiting)
-	AsyncEmail     bool          // true in production: reveal emails sent in a goroutine
-	sending        sync.Map      // event ID -> bool, guards concurrent reveal sends
-	SNSSkipVerify  bool          // true in tests: skip SNS signature verification
-	BaseURL        string        // public base URL (EVENT_SIGNUP_BASE_URL); never derived from request headers
+	EmailSendDelay time.Duration    // pause between reveal emails (rate limiting)
+	AsyncEmail     bool             // true in production: reveal emails sent in a goroutine
+	sending        sync.Map         // event ID -> bool, guards concurrent reveal sends
+	SNSSkipVerify  bool             // true in tests: skip SNS signature verification
+	BaseURL        string           // public base URL (EVENT_SIGNUP_BASE_URL); never derived from request headers
+	Clock          func() time.Time // nil means time.Now; tests inject a fake clock
+
+	adminSessions adminSessions
+	loginLimit    loginLimiter
 }
 
 type PageData struct {
@@ -152,8 +156,8 @@ func (app *App) buildFuncs(lang string) template.FuncMap {
 func (app *App) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("admin_session")
-		if err != nil || cookie.Value != app.adminSessionValue() {
-			if r.Header.Get("Content-Type") == "application/json" {
+		if err != nil || !app.adminSessions.valid(cookie.Value, app.now()) {
+			if isJSONContentType(r.Header.Get("Content-Type")) {
 				http.Error(w, `{"error":"unauthorized"}`, 401)
 				return
 			}
@@ -162,10 +166,6 @@ func (app *App) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 		}
 		next(w, r)
 	}
-}
-
-func (app *App) adminSessionValue() string {
-	return fmt.Sprintf("%x", sha256Sum([]byte(app.AdminPassword)))
 }
 
 func (app *App) handleLangSwitch(w http.ResponseWriter, r *http.Request) {
@@ -186,25 +186,45 @@ func (app *App) handleLangSwitch(w http.ResponseWriter, r *http.Request) {
 func (app *App) handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	pd := app.newPageData(r, nil)
 	if r.Method == http.MethodPost {
-		if r.FormValue("password") == app.AdminPassword {
-			http.SetCookie(w, &http.Cookie{
-				Name:     "admin_session",
-				Value:    app.adminSessionValue(),
-				Path:     "/",
-				MaxAge:   24 * 60 * 60,
-				HttpOnly: true,
-				SameSite: http.SameSiteLaxMode,
-			})
+		ip := clientIP(r)
+		now := app.now()
+		if app.loginLimit.blocked(ip, now) {
+			pd.Error = T("admin_login_locked", pd.Lang)
+			w.WriteHeader(http.StatusTooManyRequests)
+			app.render(w, r, "admin_login.html", pd)
+			return
+		}
+		if passwordMatches(r.FormValue("password"), app.AdminPassword) {
+			app.loginLimit.success(ip)
+			http.SetCookie(w, app.adminSessionCookie(app.adminSessions.create(now), int(adminSessionTTL.Seconds())))
 			http.Redirect(w, r, "/admin?lang="+pd.Lang, http.StatusSeeOther)
 			return
 		}
+		app.loginLimit.fail(ip, now)
 		pd.Error = T("admin_login_error", pd.Lang)
 	}
 	app.render(w, r, "admin_login.html", pd)
 }
 
+// adminSessionCookie builds the session cookie. Secure is set whenever the
+// configured public base URL is https (production behind nginx).
+func (app *App) adminSessionCookie(value string, maxAge int) *http.Cookie {
+	return &http.Cookie{
+		Name:     "admin_session",
+		Value:    value,
+		Path:     "/",
+		MaxAge:   maxAge,
+		HttpOnly: true,
+		Secure:   strings.HasPrefix(strings.ToLower(app.BaseURL), "https://"),
+		SameSite: http.SameSiteStrictMode,
+	}
+}
+
 func (app *App) handleAdminLogout(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{Name: "admin_session", Value: "", Path: "/", MaxAge: -1})
+	if c, err := r.Cookie("admin_session"); err == nil {
+		app.adminSessions.delete(c.Value)
+	}
+	http.SetCookie(w, app.adminSessionCookie("", -1))
 	http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 }
 

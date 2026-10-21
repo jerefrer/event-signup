@@ -39,7 +39,7 @@ func newMux(app *App) *http.ServeMux {
 }
 
 func adminCookie(app *App) *http.Cookie {
-	return &http.Cookie{Name: "admin_session", Value: app.adminSessionValue()}
+	return &http.Cookie{Name: "admin_session", Value: app.adminSessions.create(app.now())}
 }
 
 // postForm sends a POST with form data and returns the response.

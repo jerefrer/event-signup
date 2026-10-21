@@ -212,3 +212,272 @@ func TestAdminEmailPreviewIframeStillUsesSrcdoc(t *testing.T) {
 		t.Error("admin.js must fill the preview iframes through srcdoc")
 	}
 }
+
+// ---- Client IP ----
+
+func TestClientIPTrustsXRealIPOnlyFromLoopback(t *testing.T) {
+	cases := []struct {
+		name, remote, realIP, want string
+	}{
+		{"nginx on loopback", "127.0.0.1:5555", "203.0.113.9", "203.0.113.9"},
+		{"nginx on ipv6 loopback", "[::1]:5555", "203.0.113.9", "203.0.113.9"},
+		{"loopback without header", "127.0.0.1:5555", "", "127.0.0.1"},
+		{"direct peer spoofing the header", "198.51.100.7:5555", "203.0.113.9", "198.51.100.7"},
+		{"garbage header from loopback", "127.0.0.1:5555", "not-an-ip", "127.0.0.1"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req.RemoteAddr = c.remote
+			if c.realIP != "" {
+				req.Header.Set("X-Real-IP", c.realIP)
+			}
+			if got := clientIP(req); got != c.want {
+				t.Errorf("clientIP = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+// ---- Login rate limiter ----
+
+func TestLoginLimiterLocksAfterFiveFailures(t *testing.T) {
+	var l loginLimiter
+	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+
+	for i := 0; i < 4; i++ {
+		l.fail("1.2.3.4", now)
+		if l.blocked("1.2.3.4", now) {
+			t.Fatalf("blocked after only %d failures", i+1)
+		}
+	}
+	l.fail("1.2.3.4", now)
+	if !l.blocked("1.2.3.4", now) {
+		t.Fatal("5th failure should lock the IP")
+	}
+	if l.blocked("5.6.7.8", now) {
+		t.Error("another IP must not be affected")
+	}
+	if !l.blocked("1.2.3.4", now.Add(14*time.Minute)) {
+		t.Error("still locked after 14 minutes")
+	}
+	if l.blocked("1.2.3.4", now.Add(15*time.Minute+time.Second)) {
+		t.Error("lock should expire after 15 minutes")
+	}
+}
+
+func TestLoginLimiterFailuresOutsideWindowDoNotAccumulate(t *testing.T) {
+	var l loginLimiter
+	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	for i := 0; i < 4; i++ {
+		l.fail("1.2.3.4", now)
+	}
+	later := now.Add(16 * time.Minute)
+	l.fail("1.2.3.4", later)
+	if l.blocked("1.2.3.4", later) {
+		t.Error("an old failure window must not count toward the lockout")
+	}
+}
+
+func TestLoginLimiterLockoutDoublesAndCaps(t *testing.T) {
+	var l loginLimiter
+	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	lock := func() {
+		for i := 0; i < 5; i++ {
+			l.fail("1.2.3.4", now)
+		}
+	}
+	lock()
+	now = now.Add(15*time.Minute + time.Second)
+	lock() // second lockout: 30 minutes
+	if !l.blocked("1.2.3.4", now.Add(29*time.Minute)) {
+		t.Error("second lockout should last 30 minutes")
+	}
+	if l.blocked("1.2.3.4", now.Add(30*time.Minute+time.Second)) {
+		t.Error("second lockout should end after 30 minutes")
+	}
+	for i := 0; i < 20; i++ {
+		now = now.Add(24*time.Hour + time.Second)
+		lock()
+	}
+	if l.blocked("1.2.3.4", now.Add(24*time.Hour+time.Second)) {
+		t.Error("lockout must be capped at 24 hours")
+	}
+}
+
+func TestLoginLimiterSuccessResets(t *testing.T) {
+	var l loginLimiter
+	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	for i := 0; i < 4; i++ {
+		l.fail("1.2.3.4", now)
+	}
+	l.success("1.2.3.4")
+	l.fail("1.2.3.4", now)
+	if l.blocked("1.2.3.4", now) {
+		t.Error("a successful login must reset the failure count")
+	}
+}
+
+func TestLoginLimiterCleanupDropsStaleEntries(t *testing.T) {
+	var l loginLimiter
+	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	l.fail("1.2.3.4", now)
+	l.blocked("9.9.9.9", now.Add(48*time.Hour)) // any call after the interval sweeps
+	if n := l.size(); n != 0 {
+		t.Errorf("stale entry should have been cleaned up, %d left", n)
+	}
+}
+
+func TestAdminLoginLocksOutAfterFiveWrongPasswords(t *testing.T) {
+	app := testApp(t)
+	h := newMux(app)
+	for i := 0; i < 5; i++ {
+		w := postForm(h, "/admin/login?lang=fr", url.Values{"password": {"wrong"}})
+		if w.Code != 200 {
+			t.Fatalf("attempt %d: status = %d", i+1, w.Code)
+		}
+	}
+	// Even the right password is refused while locked out.
+	w := postForm(h, "/admin/login?lang=fr", url.Values{"password": {"testpass"}})
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("locked out login: status = %d, want 429", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), T("admin_login_locked", LangFR)) {
+		t.Error("expected the translated lockout message")
+	}
+	for _, c := range w.Result().Cookies() {
+		if c.Name == "admin_session" && c.Value != "" {
+			t.Error("no session may be issued while locked out")
+		}
+	}
+}
+
+func TestAdminLoginSuccessResetsFailures(t *testing.T) {
+	app := testApp(t)
+	h := newMux(app)
+	for i := 0; i < 4; i++ {
+		postForm(h, "/admin/login?lang=fr", url.Values{"password": {"wrong"}})
+	}
+	if w := postForm(h, "/admin/login?lang=fr", url.Values{"password": {"testpass"}}); w.Code != http.StatusSeeOther {
+		t.Fatalf("login status = %d", w.Code)
+	}
+	for i := 0; i < 4; i++ {
+		postForm(h, "/admin/login?lang=fr", url.Values{"password": {"wrong"}})
+	}
+	if w := postForm(h, "/admin/login?lang=fr", url.Values{"password": {"testpass"}}); w.Code != http.StatusSeeOther {
+		t.Errorf("failures before a success must not count afterwards, status = %d", w.Code)
+	}
+}
+
+func TestAdminLoginLockoutIsPerClientIP(t *testing.T) {
+	app := testApp(t)
+	h := newMux(app)
+	post := func(ip, pw string) int {
+		req := httptest.NewRequest(http.MethodPost, "/admin/login?lang=fr", strings.NewReader(url.Values{"password": {pw}}.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.RemoteAddr = "127.0.0.1:4000" // nginx
+		req.Header.Set("X-Real-IP", ip)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, req)
+		return w.Code
+	}
+	for i := 0; i < 5; i++ {
+		post("203.0.113.1", "wrong")
+	}
+	if code := post("203.0.113.1", "testpass"); code != http.StatusTooManyRequests {
+		t.Errorf("attacker IP: status = %d, want 429", code)
+	}
+	if code := post("203.0.113.2", "testpass"); code != http.StatusSeeOther {
+		t.Errorf("other IP must still log in, status = %d", code)
+	}
+}
+
+// ---- Server-side admin sessions ----
+
+func TestAdminSessionCookieAttributes(t *testing.T) {
+	app := testApp(t)
+	app.BaseURL = "https://events.example.org"
+	w := postForm(newMux(app), "/admin/login?lang=fr", url.Values{"password": {"testpass"}})
+	var c *http.Cookie
+	for _, ck := range w.Result().Cookies() {
+		if ck.Name == "admin_session" {
+			c = ck
+		}
+	}
+	if c == nil {
+		t.Fatal("no admin_session cookie")
+	}
+	if len(c.Value) != 64 {
+		t.Errorf("token should be 32 random bytes in hex, got %q", c.Value)
+	}
+	if !c.HttpOnly || !c.Secure || c.SameSite != http.SameSiteStrictMode || c.Path != "/" || c.MaxAge != 24*60*60 {
+		t.Errorf("bad cookie attributes: %+v", c)
+	}
+}
+
+func TestAdminSessionCookieNotSecureOverPlainHTTPBase(t *testing.T) {
+	app := testApp(t) // no base URL: local development over http
+	w := postForm(newMux(app), "/admin/login?lang=fr", url.Values{"password": {"testpass"}})
+	for _, ck := range w.Result().Cookies() {
+		if ck.Name == "admin_session" && ck.Secure {
+			t.Error("Secure must only be set when the base URL is https")
+		}
+	}
+}
+
+func TestOldStyleSessionCookieIsRejected(t *testing.T) {
+	app := testApp(t)
+	old := fmt.Sprintf("%x", sha256Sum([]byte(app.AdminPassword)))
+	w := getRequest(newMux(app), "/admin?lang=fr", &http.Cookie{Name: "admin_session", Value: old})
+	if w.Code != http.StatusSeeOther || !strings.Contains(w.Header().Get("Location"), "/admin/login") {
+		t.Errorf("sha256(password) cookie must no longer authenticate: status = %d", w.Code)
+	}
+}
+
+func TestUnknownSessionTokenIsRejected(t *testing.T) {
+	app := testApp(t)
+	w := getRequest(newMux(app), "/admin?lang=fr", &http.Cookie{Name: "admin_session", Value: strings.Repeat("ab", 32)})
+	if w.Code != http.StatusSeeOther {
+		t.Errorf("unknown token: status = %d, want redirect", w.Code)
+	}
+}
+
+func TestExpiredSessionIsRejected(t *testing.T) {
+	app := testApp(t)
+	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	app.Clock = func() time.Time { return now }
+	tok := app.adminSessions.create(now)
+	now = now.Add(24*time.Hour + time.Second)
+	w := getRequest(newMux(app), "/admin?lang=fr", &http.Cookie{Name: "admin_session", Value: tok})
+	if w.Code != http.StatusSeeOther {
+		t.Errorf("expired session: status = %d, want redirect", w.Code)
+	}
+}
+
+func TestLogoutInvalidatesTokenServerSide(t *testing.T) {
+	app := testApp(t)
+	h := newMux(app)
+	login := postForm(h, "/admin/login?lang=fr", url.Values{"password": {"testpass"}})
+	var tok *http.Cookie
+	for _, ck := range login.Result().Cookies() {
+		if ck.Name == "admin_session" {
+			tok = ck
+		}
+	}
+	if tok == nil {
+		t.Fatal("no session cookie")
+	}
+	if w := getRequest(h, "/admin?lang=fr", tok); w.Code != 200 {
+		t.Fatalf("fresh session: status = %d", w.Code)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/admin/logout", nil)
+	req.AddCookie(tok)
+	h2 := http.NewServeMux()
+	h2.HandleFunc("/admin/logout", app.handleAdminLogout)
+	h2.ServeHTTP(httptest.NewRecorder(), req)
+
+	// The very same cookie value, replayed, must be dead now.
+	if w := getRequest(h, "/admin?lang=fr", tok); w.Code != http.StatusSeeOther {
+		t.Errorf("replayed token after logout: status = %d, want redirect", w.Code)
+	}
+}
