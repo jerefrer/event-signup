@@ -202,10 +202,10 @@ func main() {
 		http.NotFound(w, r)
 	})
 
-	addr := ":" + port
+	addr := listenAddress(port, os.Getenv("EVENT_SIGNUP_LISTEN_ADDR"))
 	log.Printf("Starting server on %s", addr)
-	log.Printf("Admin: http://localhost:%s/admin", port)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	log.Printf("Admin: http://%s/admin", addr)
+	if err := newHTTPServer(addr, mux).ListenAndServe(); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
 }

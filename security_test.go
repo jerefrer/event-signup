@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 // ---- Base URL ----
@@ -87,5 +88,24 @@ func TestSignupCancelURLIgnoresForwardedHost(t *testing.T) {
 	}
 	if got := app.baseURL(req); got != "https://events.example.org" {
 		t.Errorf("baseURL = %q", got)
+	}
+}
+
+// ---- Listener and timeouts ----
+
+func TestListenAddressDefaultsToLoopback(t *testing.T) {
+	if got := listenAddress("8090", ""); got != "127.0.0.1:8090" {
+		t.Errorf("listenAddress = %q, want 127.0.0.1:8090", got)
+	}
+	if got := listenAddress("8090", "0.0.0.0:9000"); got != "0.0.0.0:9000" {
+		t.Errorf("override should win, got %q", got)
+	}
+}
+
+func TestNewHTTPServerSetsTimeouts(t *testing.T) {
+	srv := newHTTPServer("127.0.0.1:0", http.NotFoundHandler())
+	if srv.ReadHeaderTimeout != 10*time.Second || srv.ReadTimeout != 30*time.Second ||
+		srv.WriteTimeout != 120*time.Second || srv.IdleTimeout != 120*time.Second {
+		t.Errorf("unexpected timeouts: %v %v %v %v", srv.ReadHeaderTimeout, srv.ReadTimeout, srv.WriteTimeout, srv.IdleTimeout)
 	}
 }
