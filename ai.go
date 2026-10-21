@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // AINode is the JSON structure exchanged with the AI model.
@@ -29,6 +30,10 @@ type aiRequest struct {
 	Text       string `json:"text"`
 	DefaultOne bool   `json:"default_one"`
 }
+
+// aiHTTPClient has an explicit timeout: http.DefaultClient has none, so a
+// stalled upstream would hold the admin request (and its goroutine) forever.
+var aiHTTPClient = &http.Client{Timeout: 90 * time.Second}
 
 // callClaude sends a prompt to the Anthropic Messages API and returns the text response.
 func callClaude(apiKey, systemPrompt, userPrompt string) (string, error) {
@@ -53,7 +58,7 @@ func callClaude(apiKey, systemPrompt, userPrompt string) (string, error) {
 	req.Header.Set("x-api-key", apiKey)
 	req.Header.Set("anthropic-version", "2023-06-01")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := aiHTTPClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("API request failed: %w", err)
 	}
@@ -176,14 +181,22 @@ func applyAINodes(db *sql.DB, eventID int64, nodes []AINode, parentGroupID sql.N
 		switch node.Type {
 		case "group":
 			var groupID int64
+			updated := false
 			if node.ID != nil && *node.ID > 0 {
-				// Update existing group
-				if _, err := db.Exec("UPDATE task_groups SET title_fr=?, title_en=?, position=?, parent_group_id=? WHERE id=?",
-					node.TitleFR, node.TitleEN, pos, parentGroupID, *node.ID); err != nil {
+				// Update existing group. The ID comes from the model, so it is
+				// untrusted: only a group of THIS event may be touched. An ID that
+				// matches nothing here is treated as a new item.
+				res, err := db.Exec("UPDATE task_groups SET title_fr=?, title_en=?, position=?, parent_group_id=? WHERE id=? AND event_id=?",
+					node.TitleFR, node.TitleEN, pos, parentGroupID, *node.ID, eventID)
+				if err != nil {
 					return fmt.Errorf("updating group: %w", err)
 				}
-				groupID = *node.ID
-			} else {
+				if n, _ := res.RowsAffected(); n > 0 {
+					groupID = *node.ID
+					updated = true
+				}
+			}
+			if !updated {
 				// Create new group
 				res, err := db.Exec("INSERT INTO task_groups (event_id, parent_group_id, title_fr, title_en, position) VALUES (?, ?, ?, ?, ?)",
 					eventID, parentGroupID, node.TitleFR, node.TitleEN, pos)
@@ -200,22 +213,24 @@ func applyAINodes(db *sql.DB, eventID int64, nodes []AINode, parentGroupID sql.N
 			}
 
 		case "task":
+			var maxSlots sql.NullInt64
+			if node.MaxSlots != nil {
+				maxSlots = sql.NullInt64{Int64: *node.MaxSlots, Valid: true}
+			}
+			updated := false
 			if node.ID != nil && *node.ID > 0 {
-				// Update existing task
-				var maxSlots sql.NullInt64
-				if node.MaxSlots != nil {
-					maxSlots = sql.NullInt64{Int64: *node.MaxSlots, Valid: true}
-				}
-				if _, err := db.Exec("UPDATE tasks SET title_fr=?, title_en=?, description_fr=?, description_en=?, max_slots=?, position=?, group_id=? WHERE id=?",
-					node.TitleFR, node.TitleEN, node.DescriptionFR, node.DescriptionEN, maxSlots, pos, parentGroupID, *node.ID); err != nil {
+				// Update existing task — scoped to this event, see the group case.
+				res, err := db.Exec("UPDATE tasks SET title_fr=?, title_en=?, description_fr=?, description_en=?, max_slots=?, position=?, group_id=? WHERE id=? AND event_id=?",
+					node.TitleFR, node.TitleEN, node.DescriptionFR, node.DescriptionEN, maxSlots, pos, parentGroupID, *node.ID, eventID)
+				if err != nil {
 					return fmt.Errorf("updating task: %w", err)
 				}
-			} else {
-				// Create new task
-				var maxSlots sql.NullInt64
-				if node.MaxSlots != nil {
-					maxSlots = sql.NullInt64{Int64: *node.MaxSlots, Valid: true}
+				if n, _ := res.RowsAffected(); n > 0 {
+					updated = true
 				}
+			}
+			if !updated {
+				// Create new task
 				if _, err := db.Exec("INSERT INTO tasks (event_id, group_id, title_fr, title_en, description_fr, description_en, max_slots, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
 					eventID, parentGroupID, node.TitleFR, node.TitleEN, node.DescriptionFR, node.DescriptionEN, maxSlots, pos); err != nil {
 					return fmt.Errorf("creating task: %w", err)
