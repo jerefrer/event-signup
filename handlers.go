@@ -582,7 +582,7 @@ func (app *App) handleAdminExportCSV(w http.ResponseWriter, r *http.Request) {
 	cw := csv.NewWriter(w)
 	cw.Write([]string{"Groupe", "Tâche", "Prénom", "Nom", "Email", "Téléphone", "Date inscription"})
 	for _, reg := range regs {
-		cw.Write([]string{reg.GroupTitle, reg.TaskTitle, reg.FirstName, reg.LastName, reg.Email, reg.Phone, reg.CreatedAt.Format("2006-01-02 15:04")})
+		writeCSVRow(cw, []string{reg.GroupTitle, reg.TaskTitle, reg.FirstName, reg.LastName, reg.Email, reg.Phone, reg.CreatedAt.Format("2006-01-02 15:04")})
 	}
 	cw.Flush()
 }
@@ -1293,7 +1293,7 @@ func (app *App) handleAdminExportAttendanceCSV(w http.ResponseWriter, r *http.Re
 		if a.Attending {
 			attending = T("attendance_yes", lang)
 		}
-		cw.Write([]string{a.LastName, a.FirstName, a.Email, a.Phone, attending, a.Message, a.CreatedAt.Format("2006-01-02 15:04")})
+		writeCSVRow(cw, []string{a.LastName, a.FirstName, a.Email, a.Phone, attending, a.Message, a.CreatedAt.Format("2006-01-02 15:04")})
 	}
 	cw.Flush()
 }

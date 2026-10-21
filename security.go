@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/csv"
 	"net/http"
 	"net/url"
 	"strings"
@@ -167,4 +168,24 @@ func containsFold(list []string, v string) bool {
 // secure wraps the whole mux in the app's security middleware chain.
 func (app *App) secure(next http.Handler) http.Handler {
 	return securityHeaders(limitBody(app.checkOrigin(next)))
+}
+
+// csvSafe neutralizes spreadsheet formula injection: a cell that starts with
+// =, +, -, @, tab or carriage return would be evaluated as a formula by Excel
+// or LibreOffice when an admin opens the export, so it gets a leading
+// apostrophe (shown by the spreadsheet as plain text).
+func csvSafe(s string) string {
+	if s != "" && strings.ContainsRune("=+-@\t\r", rune(s[0])) {
+		return "'" + s
+	}
+	return s
+}
+
+// writeCSVRow writes one record with every cell passed through csvSafe.
+func writeCSVRow(cw *csv.Writer, cells []string) {
+	safe := make([]string, len(cells))
+	for i, c := range cells {
+		safe[i] = csvSafe(c)
+	}
+	cw.Write(safe)
 }

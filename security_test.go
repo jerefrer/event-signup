@@ -862,3 +862,53 @@ func TestHitLimiter(t *testing.T) {
 		t.Error("oldest hit leaves the window after an hour")
 	}
 }
+
+// ---- CSV formula injection ----
+
+func TestCSVSafe(t *testing.T) {
+	for in, want := range map[string]string{
+		"=1+1":     "'=1+1",
+		"+33601":   "'+33601",
+		"-5":       "'-5",
+		"@SUM(A1)": "'@SUM(A1)",
+		"\tcmd":    "'\tcmd",
+		"\rcmd":    "'\rcmd",
+		"Alice":    "Alice",
+		"":         "",
+		"a=b":      "a=b",
+		"1+1":      "1+1",
+		" =spaced": " =spaced",
+	} {
+		if got := csvSafe(in); got != want {
+			t.Errorf("csvSafe(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestCSVExportsNeutralizeFormulas(t *testing.T) {
+	app := testApp(t)
+	e := seedEvent(t, app.DB)
+	tk := seedTask(t, app.DB, e.ID, "=HYPERLINK(\"http://evil\")", int64Ptr(5))
+	RegisterForTask(app.DB, tk.ID, "=cmd|' /C calc'!A0", "@evil", "a@b.co", "+33601020304")
+	ev := seedAttendanceEvent(t, app.DB)
+	UpsertAttendance(app.DB, ev.ID, "-1+1", "Dupont", "c@d.co", "", true, "=1+1")
+	h := newMux(app)
+	h2 := http.NewServeMux()
+	h2.HandleFunc("/admin/export", app.requireAdmin(app.handleAdminExportCSV))
+	h = h2
+
+	for _, c := range []struct {
+		eventID int64
+		want    []string
+	}{
+		{e.ID, []string{"'=cmd|", "'@evil", "'+33601020304", "'=HYPERLINK"}},
+		{ev.ID, []string{"'-1+1", "'=1+1"}},
+	} {
+		body := getRequest(h, fmt.Sprintf("/admin/export?event_id=%d", c.eventID), adminCookie(app)).Body.String()
+		for _, want := range c.want {
+			if !strings.Contains(body, want) {
+				t.Errorf("event %d export is missing the neutralized cell %q:\n%s", c.eventID, want, body)
+			}
+		}
+	}
+}
