@@ -30,6 +30,7 @@ type App struct {
 	sending        sync.Map         // event ID -> bool, guards concurrent reveal sends
 	SNSSkipVerify  bool             // true in tests: skip SNS signature verification
 	BaseURL        string           // public base URL (EVENT_SIGNUP_BASE_URL); never derived from request headers
+	SNSTopicARN    string           // EVENT_SIGNUP_SNS_TOPIC_ARN: when set, only this topic is accepted
 	Clock          func() time.Time // nil means time.Now; tests inject a fake clock
 
 	adminSessions adminSessions

@@ -14,6 +14,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -66,15 +67,59 @@ func snsCanonicalString(env snsEnvelope) string {
 	return b.String()
 }
 
-var snsCertCache sync.Map // SigningCertURL -> *rsa.PublicKey
+// snsHostPattern matches exactly sns.<region>.amazonaws.com. Anything else —
+// including sns.<x>.<y>.amazonaws.com, which an attacker could register under
+// a service they control — is refused as a certificate host.
+var snsHostPattern = regexp.MustCompile(`^sns\.[a-z0-9-]+\.amazonaws\.com$`)
+
+// snsCertCacheMax bounds the signing-certificate cache; the host check already
+// limits keys to real SNS endpoints, this is a belt-and-braces memory cap.
+const snsCertCacheMax = 16
+
+// snsCertCache maps SigningCertURL -> verified public key.
+type snsCertCache struct {
+	mu sync.Mutex
+	m  map[string]*rsa.PublicKey
+}
+
+func (c *snsCertCache) get(url string) (*rsa.PublicKey, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	k, ok := c.m[url]
+	return k, ok
+}
+
+// put stores a key, evicting an arbitrary entry when the cache is full.
+func (c *snsCertCache) put(url string, k *rsa.PublicKey) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.m == nil {
+		c.m = map[string]*rsa.PublicKey{}
+	}
+	if _, exists := c.m[url]; !exists && len(c.m) >= snsCertCacheMax {
+		for old := range c.m {
+			delete(c.m, old)
+			break
+		}
+	}
+	c.m[url] = k
+}
+
+func (c *snsCertCache) size() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return len(c.m)
+}
+
+var snsCerts snsCertCache
 
 var snsCertHTTPClient = &http.Client{Timeout: 5 * time.Second}
 
 var snsSubscribeHTTPClient = &http.Client{Timeout: 10 * time.Second}
 
 func snsSigningKey(certURL string) (*rsa.PublicKey, error) {
-	if v, ok := snsCertCache.Load(certURL); ok {
-		return v.(*rsa.PublicKey), nil
+	if k, ok := snsCerts.get(certURL); ok {
+		return k, nil
 	}
 	resp, err := snsCertHTTPClient.Get(certURL)
 	if err != nil {
@@ -100,7 +145,7 @@ func snsSigningKey(certURL string) (*rsa.PublicKey, error) {
 	if !ok {
 		return nil, fmt.Errorf("SNS cert: not an RSA public key")
 	}
-	snsCertCache.Store(certURL, pub)
+	snsCerts.put(certURL, pub)
 	return pub, nil
 }
 
@@ -116,7 +161,7 @@ func verifySNSMessage(env snsEnvelope) error {
 	// bucket (e.g. bucket.s3.amazonaws.com) and sign messages with its key.
 	// Only sns.<region>.amazonaws.com hosts are controlled by AWS SNS.
 	host := strings.ToLower(u.Hostname())
-	if !strings.HasPrefix(host, "sns.") || !strings.HasSuffix(host, ".amazonaws.com") {
+	if !snsHostPattern.MatchString(host) {
 		return fmt.Errorf("invalid SigningCertURL host %q", host)
 	}
 	pub, err := snsSigningKey(env.SigningCertURL)
@@ -178,6 +223,14 @@ func (app *App) handleSESWebhook(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
+	}
+	// Optional pinning to our own SNS topic: without it any AWS account's SNS
+	// could post validly signed messages here (or get us to confirm its
+	// subscription).
+	if app.SNSTopicARN != "" && env.TopicArn != app.SNSTopicARN {
+		log.Printf("SES webhook: rejected message for foreign topic %q", env.TopicArn)
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
 	}
 	switch env.Type {
 	case "SubscriptionConfirmation":

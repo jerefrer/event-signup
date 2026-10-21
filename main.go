@@ -121,6 +121,7 @@ func main() {
 		Email:          emailSender,
 		EmailSendDelay: emailDelay,
 		AsyncEmail:     true,
+		SNSTopicARN:    os.Getenv("EVENT_SIGNUP_SNS_TOPIC_ARN"),
 		BaseURL:        strings.TrimRight(os.Getenv("EVENT_SIGNUP_BASE_URL"), "/"),
 	}
 	if app.BaseURL == "" {

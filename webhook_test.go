@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rsa"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -133,5 +135,83 @@ func TestSESWebhookRejectsBadSignature(t *testing.T) {
 	w := postRaw(mux, "/webhooks/ses", `{"Type":"Notification","Message":"{}"}`)
 	if w.Code != http.StatusForbidden {
 		t.Errorf("unsigned message = %d, want 403", w.Code)
+	}
+}
+
+func TestSNSCertHostMustBeExactlySNSRegion(t *testing.T) {
+	for host, want := range map[string]bool{
+		"sns.eu-west-1.amazonaws.com":          true,
+		"sns.us-east-1.amazonaws.com":          true,
+		"sns.eu-west-1.amazonaws.com.evil.com": false,
+		"sns.evil.s3.amazonaws.com":            false,
+		"sns.a.b.amazonaws.com":                false,
+		"sns..amazonaws.com":                   false,
+		"sns.EU_west.amazonaws.com":            false,
+		"xsns.eu-west-1.amazonaws.com":         false,
+		"evil.com/sns.eu-west-1.amazonaws.com": false,
+		"sns.eu-west-1.amazonaws.com.":         false,
+	} {
+		if got := snsHostPattern.MatchString(host); got != want {
+			t.Errorf("snsHostPattern(%q) = %v, want %v", host, got, want)
+		}
+	}
+	err := verifySNSMessage(snsEnvelope{Type: "Notification", SigningCertURL: "https://sns.evil.s3.amazonaws.com/cert.pem"})
+	if err == nil || !strings.Contains(err.Error(), "host") {
+		t.Errorf("nested sns.* host must be rejected on the host check, got %v", err)
+	}
+}
+
+func TestSESWebhookRejectsForeignTopic(t *testing.T) {
+	app := testApp(t)
+	app.SNSTopicARN = "arn:aws:sns:eu-west-1:123:ours"
+	e := seedSantaEvent(t, app.DB)
+	p := seedSantaParticipant(t, app.DB, e.ID, "Alice", "alice@test.com", false)
+	RecordEmailSent(app.DB, p.ID, "link", "ses-abc", "alice@test.com")
+	mux := newMux(app)
+
+	foreign := `{"Type":"Notification","TopicArn":"arn:aws:sns:eu-west-1:999:theirs","Message":"{\"eventType\":\"Bounce\",\"mail\":{\"messageId\":\"ses-abc\"}}"}`
+	if w := postRaw(mux, "/webhooks/ses", foreign); w.Code != http.StatusForbidden {
+		t.Errorf("foreign topic: status = %d, want 403", w.Code)
+	}
+	if m, _ := GetEmailMessageBySESID(app.DB, "ses-abc"); m.Status != "sent" {
+		t.Errorf("a foreign-topic message must not update status, got %q", m.Status)
+	}
+
+	own := strings.Replace(foreign, "999:theirs", "123:ours", 1)
+	if w := postRaw(mux, "/webhooks/ses", own); w.Code != 200 {
+		t.Errorf("own topic: status = %d, want 200", w.Code)
+	}
+	if m, _ := GetEmailMessageBySESID(app.DB, "ses-abc"); m.Status != "bounced" {
+		t.Errorf("own-topic message should apply, got %q", m.Status)
+	}
+}
+
+func TestSESWebhookDoesNotConfirmForeignSubscription(t *testing.T) {
+	app := testApp(t)
+	app.SNSTopicARN = "arn:aws:sns:eu-west-1:123:ours"
+	called := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { called = true }))
+	defer srv.Close()
+
+	body := `{"Type":"SubscriptionConfirmation","TopicArn":"arn:aws:sns:eu-west-1:999:theirs","SubscribeURL":"` + srv.URL + `"}`
+	if w := postRaw(newMux(app), "/webhooks/ses", body); w.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want 403", w.Code)
+	}
+	if called {
+		t.Error("a foreign topic's SubscribeURL must never be fetched")
+	}
+}
+
+func TestSNSCertCacheIsBounded(t *testing.T) {
+	var c snsCertCache
+	for i := 0; i < 50; i++ {
+		c.put(fmt.Sprintf("https://sns.eu-west-1.amazonaws.com/%d.pem", i), &rsa.PublicKey{})
+	}
+	if n := c.size(); n > snsCertCacheMax {
+		t.Errorf("cache holds %d entries, cap is %d", n, snsCertCacheMax)
+	}
+	c.put("https://sns.eu-west-1.amazonaws.com/new.pem", &rsa.PublicKey{})
+	if _, ok := c.get("https://sns.eu-west-1.amazonaws.com/new.pem"); !ok {
+		t.Error("the newest entry must be cached")
 	}
 }
